@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle, View } from 'react-native';
 import { scaleFontSize } from '@/src/utils/FontSizeUtil';
+import { FONTS } from '@/src/constants/fonts';
 
 interface CustomButtonProps {
     title: string;
@@ -70,7 +71,7 @@ const styles = StyleSheet.create({
     },
     buttonText: {
         fontSize: scaleFontSize(16),
-        fontWeight: '500',
+        fontFamily: FONTS.nunitoMedium,
         flex: 1,
         textAlign: 'center',
     },

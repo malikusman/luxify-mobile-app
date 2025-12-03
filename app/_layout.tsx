@@ -7,17 +7,25 @@ import { Provider } from 'react-redux';
 import { store, persistor } from '@/src/context/store';
 import { PersistGate } from 'redux-persist/integration/react';
 import { Platform, LogBox } from 'react-native';
+import { useCustomFonts } from '@/src/hooks/useCustomFonts';
 import { useSplashScreen } from '@/src/hooks/splash/useSplashScreen';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-
+    const fontsLoaded = useCustomFonts();
     useSplashScreen();
+
     useEffect(() => {
         LogBox.ignoreAllLogs();
-        SplashScreen.hideAsync()
-    }, []);
+        if (fontsLoaded) {
+            SplashScreen.hideAsync();
+        }
+    }, [fontsLoaded]);
+
+    if (!fontsLoaded) {
+        return null;
+    }
 
     return (
         <Provider store={store}>

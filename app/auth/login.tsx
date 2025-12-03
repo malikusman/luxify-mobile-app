@@ -5,6 +5,7 @@ import { FontAwesome, AntDesign } from '@expo/vector-icons';
 import { scaleFontSize } from '@/src/utils/FontSizeUtil';
 import { useThemeColors } from '@/src/theme/Colors';
 import { translations } from '@/src/constants/translations';
+import { FONTS } from '@/src/constants/fonts';
 import CustomButton from '@/src/components/common/CustomButton';
 import Logo from '@/src/components/common/Logo';
 import GoogleIcon from '@/src/components/icons/GoogleIcon';
@@ -68,7 +69,7 @@ export default function Login() {
                 <Text style={[styles.signupText, { color: colors.textSecondary }]}>
                     {t.dontHaveAccount}
                 </Text>
-                <TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/auth/Signup')} activeOpacity={0.7}>
                     <Text style={[styles.signupLink, { color: colors.text }]}>
                         {t.signUp}
                     </Text>
@@ -88,13 +89,14 @@ const styles = StyleSheet.create({
     welcomeText: {
         fontSize: scaleFontSize(32),
         lineHeight: scaleFontSize(39),
-        fontWeight: '400',
+        fontFamily: FONTS.hermannRegular,
         marginBottom: 8,
         textAlign: 'center',
     },
     subtitleText: {
         fontSize: scaleFontSize(16),
         lineHeight: scaleFontSize(25),
+        fontFamily: FONTS.nunitoRegular,
         marginBottom: scaleFontSize(40),
         textAlign: 'center',
     },
@@ -109,6 +111,7 @@ const styles = StyleSheet.create({
     dividerText: {
         fontSize: scaleFontSize(16),
         lineHeight: scaleFontSize(24),
+        fontFamily: FONTS.nunitoRegular,
     },
     signupContainer: {
         flexDirection: 'row',
@@ -117,10 +120,11 @@ const styles = StyleSheet.create({
     signupText: {
         fontSize: scaleFontSize(16),
         lineHeight: scaleFontSize(24),
+        fontFamily: FONTS.hermannRegular,
     },
     signupLink: {
         fontSize: scaleFontSize(16),
         lineHeight: scaleFontSize(24),
-        fontWeight: '600',
+        fontFamily: FONTS.hermannRegular,
     },
 });
