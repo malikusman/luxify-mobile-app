@@ -12,6 +12,7 @@ interface CustomButtonProps {
     icon?: React.ReactNode;
     style?: ViewStyle;
     textStyle?: TextStyle;
+    disabled?: boolean;
 }
 
 export default function CustomButton({
@@ -23,6 +24,7 @@ export default function CustomButton({
     icon,
     style,
     textStyle,
+    disabled = false,
 }: CustomButtonProps) {
     return (
         <TouchableOpacity
@@ -31,11 +33,13 @@ export default function CustomButton({
                 {
                     backgroundColor,
                     borderColor,
+                    opacity: disabled ? 0.5 : 1,
                 },
                 style,
             ]}
             onPress={onPress}
             activeOpacity={0.7}
+            disabled={disabled}
         >
             {icon && <View style={styles.iconContainer}>{icon}</View>}
             <Text

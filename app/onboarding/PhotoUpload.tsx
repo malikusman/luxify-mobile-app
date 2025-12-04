@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Image, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { scaleFontSize } from '@/src/utils/FontSizeUtil';
@@ -8,27 +8,135 @@ import { translations } from '@/src/constants/translations';
 import { FONTS } from '@/src/constants/fonts';
 import CustomButton from '@/src/components/common/CustomButton';
 import BackButton from '@/src/components/common/BackButton';
+import {
+    pickMultipleImagesFromGallery,
+    takePhotoWithCamera,
+    pickImageFromGallery,
+    showImageSourceDialog,
+} from '@/src/services/imagePickerService';
+
+const MAX_PHOTOS = 3;
 
 export default function PhotoUpload() {
     const router = useRouter();
     const colors = useThemeColors();
     const t = translations.onboarding;
-    const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
+    const imagePickerT = translations.imagePicker;
+    const [uploadedPhotos, setUploadedPhotos] = useState<(string | undefined)[]>(Array(MAX_PHOTOS).fill(undefined));
 
     const handleBack = () => {
         router.back();
     };
 
-    const handleUploadPhotos = () => {
-        console.log('Upload photos from gallery');
+    const handleUploadPhotos = async () => {
+        const emptySlots = uploadedPhotos.filter(photo => !photo).length;
+        if (emptySlots === 0) {
+            Alert.alert(t.maximumPhotos, t.maximumPhotosMessage);
+            return;
+        }
+
+        const result = await pickMultipleImagesFromGallery(emptySlots, {
+            quality: 0.8,
+        });
+
+        if (result.success && result.uris) {
+            setUploadedPhotos(prev => {
+                const updated = [...prev];
+                let photoIndex = 0;
+                for (let i = 0; i < updated.length && photoIndex < result.uris!.length; i++) {
+                    if (!updated[i]) {
+                        updated[i] = result.uris![photoIndex];
+                        photoIndex++;
+                    }
+                }
+                return updated;
+            });
+        } else if (result.error && result.error !== imagePickerT.userCanceled && result.error !== imagePickerT.permissionsNotGranted) {
+            Alert.alert(translations.common.error, result.error);
+        }
     };
 
-    const handleTakePhoto = () => {
-        console.log('Take photo with camera');
+    const handleTakePhoto = async () => {
+        const emptySlots = uploadedPhotos.filter(photo => !photo).length;
+        if (emptySlots === 0) {
+            Alert.alert(t.maximumPhotos, t.maximumPhotosMessage);
+            return;
+        }
+
+        const result = await takePhotoWithCamera({
+            quality: 0.8,
+            allowsEditing: true,
+        });
+
+        if (result.success && result.uri) {
+            setUploadedPhotos(prev => {
+                const updated = [...prev];
+                const firstEmptyIndex = updated.findIndex(photo => !photo);
+                if (firstEmptyIndex !== -1) {
+                    updated[firstEmptyIndex] = result.uri!;
+                }
+                return updated;
+            });
+        } else if (result.error && result.error !== imagePickerT.userCanceled && result.error !== imagePickerT.permissionsNotGranted) {
+            Alert.alert(translations.common.error, result.error);
+        }
+    };
+
+    const handlePhotoPress = (index: number) => {
+        const hasPhoto = uploadedPhotos[index];
+        const alertTitle = hasPhoto ? imagePickerT.replacePhoto : imagePickerT.addPhoto;
+
+        const onTakePhoto = async () => {
+            const result = await takePhotoWithCamera({
+                quality: 0.8,
+                allowsEditing: true,
+            });
+
+            if (result.success && result.uri) {
+                setUploadedPhotos(prev => {
+                    const updated = [...prev];
+                    updated[index] = result.uri!;
+                    return updated;
+                });
+            } else if (result.error && result.error !== imagePickerT.userCanceled && result.error !== imagePickerT.permissionsNotGranted) {
+                Alert.alert('Error', result.error);
+            }
+        };
+
+        const onPickFromGallery = async () => {
+            const result = await pickImageFromGallery({
+                quality: 0.8,
+            });
+
+            if (result.success && result.uri) {
+                setUploadedPhotos(prev => {
+                    const updated = [...prev];
+                    updated[index] = result.uri!;
+                    return updated;
+                });
+            } else if (result.error && result.error !== imagePickerT.userCanceled && result.error !== imagePickerT.permissionsNotGranted) {
+                Alert.alert('Error', result.error);
+            }
+        };
+
+        const onRemove = () => {
+            setUploadedPhotos(prev => {
+                const updated = [...prev];
+                updated[index] = undefined;
+                return updated;
+            });
+        };
+
+        showImageSourceDialog(
+            onTakePhoto,
+            onPickFromGallery,
+            hasPhoto ? onRemove : undefined,
+            alertTitle
+        );
     };
 
     const handleNext = () => {
-        console.log('Navigate to next screen');
+        router.push('/onboarding/ChooseStylist');
     };
 
     return (
@@ -58,23 +166,45 @@ export default function PhotoUpload() {
 
                     <View style={styles.uploadSection}>
                         <View style={styles.photoPlaceholders}>
-                            {[1, 2, 3].map((index) => (
-                                <View
-                                    key={index}
-                                    style={[
-                                        styles.photoPlaceholder,
-                                        {
-                                            borderColor: colors.border,
-                                        },
-                                    ]}
-                                >
-                                    <Image
-                                        source={require('@/assets/placeholderImage.png')}
-                                        style={styles.placeholderImage}
-                                        resizeMode="cover"
-                                    />
-                                </View>
-                            ))}
+                            {[0, 1, 2].map((index) => {
+                                const photoUri = uploadedPhotos[index];
+                                return (
+                                    <TouchableOpacity
+                                        key={index}
+                                        style={[
+                                            styles.photoPlaceholder,
+                                            {
+                                                borderColor: colors.border,
+                                            },
+                                        ]}
+                                        onPress={() => handlePhotoPress(index)}
+                                        activeOpacity={0.7}
+                                    >
+                                        {photoUri ? (
+                                            <Image
+                                                source={{ uri: photoUri }}
+                                                style={styles.placeholderImage}
+                                                resizeMode="cover"
+                                            />
+                                        ) : (
+                                            <Image
+                                                source={require('@/assets/placeholderImage.png')}
+                                                style={styles.placeholderImage}
+                                                resizeMode="cover"
+                                            />
+                                        )}
+                                        {photoUri && (
+                                            <View style={styles.removeButton}>
+                                                <Ionicons
+                                                    name="close-circle"
+                                                    size={scaleFontSize(24)}
+                                                    color="#FFFFFF"
+                                                />
+                                            </View>
+                                        )}
+                                    </TouchableOpacity>
+                                );
+                            })}
                         </View>
 
                         <TouchableOpacity
@@ -83,10 +213,12 @@ export default function PhotoUpload() {
                                 {
                                     backgroundColor: colors.surface,
                                     borderColor: colors.border,
+                                    opacity: uploadedPhotos.filter(photo => photo).length >= MAX_PHOTOS ? 0.5 : 1,
                                 },
                             ]}
                             onPress={handleUploadPhotos}
                             activeOpacity={0.7}
+                            disabled={uploadedPhotos.filter(photo => photo).length >= MAX_PHOTOS}
                         >
                             <Text style={[styles.uploadButtonText, { color: colors.textSecondary }]}>
                                 {t.uploadPhotos}
@@ -110,10 +242,12 @@ export default function PhotoUpload() {
                                 {
                                     backgroundColor: colors.surface,
                                     borderColor: colors.border,
+                                    opacity: uploadedPhotos.filter(photo => photo).length >= MAX_PHOTOS ? 0.5 : 1,
                                 },
                             ]}
                             onPress={handleTakePhoto}
                             activeOpacity={0.7}
+                            disabled={uploadedPhotos.filter(photo => photo).length >= MAX_PHOTOS}
                         >
                             <Text style={[styles.takePhotoButtonText, { color: colors.textSecondary }]}>
                                 {t.snapYourFit}
@@ -150,9 +284,9 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     backButtonContainer: {
-        paddingTop: 60,
-        paddingLeft: 24,
-        paddingBottom: 8,
+        paddingTop: scaleFontSize(60),
+        paddingLeft: scaleFontSize(24),
+        paddingBottom: scaleFontSize(8),
     },
     scrollView: {
         flex: 1,
@@ -184,7 +318,7 @@ const styles = StyleSheet.create({
         lineHeight: scaleFontSize(24),
         fontFamily: FONTS.nunitoRegular,
         textAlign: 'center',
-        paddingHorizontal: 20,
+        paddingHorizontal: scaleFontSize(20),
     },
     uploadSection: {
         width: '100%',
@@ -198,13 +332,20 @@ const styles = StyleSheet.create({
     photoPlaceholder: {
         flex: 1,
         aspectRatio: 0.75,
-        borderRadius: 8,
-        borderWidth: 2,
+        borderRadius: scaleFontSize(8),
+        borderWidth: scaleFontSize(2),
         overflow: 'hidden',
     },
     placeholderImage: {
         width: '100%',
         height: '100%',
+    },
+    removeButton: {
+        position: 'absolute',
+        top: 4,
+        right: 4,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        borderRadius: scaleFontSize(12),
     },
     uploadButton: {
         flexDirection: 'row',
@@ -212,8 +353,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: scaleFontSize(16),
         paddingVertical: scaleFontSize(14),
-        borderRadius: 8,
-        borderWidth: 1,
+        borderRadius: scaleFontSize(8),
+        borderWidth: scaleFontSize(1),
     },
     uploadButtonText: {
         fontSize: scaleFontSize(16),
@@ -234,8 +375,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: scaleFontSize(16),
         paddingVertical: scaleFontSize(14),
-        borderRadius: 8,
-        borderWidth: 1,
+        borderRadius: scaleFontSize(8),
+        borderWidth: scaleFontSize(1),
         marginBottom: scaleFontSize(16),
     },
     takePhotoButtonText: {
@@ -247,7 +388,7 @@ const styles = StyleSheet.create({
         fontFamily: FONTS.nunitoRegular,
         lineHeight: scaleFontSize(20),
         textAlign: 'center',
-        paddingHorizontal: 20,
+        paddingHorizontal: scaleFontSize(20),
     },
     buttonContainer: {
         width: '100%',

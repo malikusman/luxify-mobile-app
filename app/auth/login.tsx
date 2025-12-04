@@ -32,6 +32,7 @@ export default function Login() {
                 textColor={colors.text}
                 borderColor={colors.googleBorder}
                 icon={<GoogleIcon size={scaleFontSize(20)} />}
+                onPress={() => router.push('/home/(tabs)')}
             />
 
             <CustomButton

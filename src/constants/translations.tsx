@@ -21,6 +21,27 @@ export const translations = {
     // Common
     common: {
         or: 'or',
+        ok: 'OK',
+        cancel: 'Cancel',
+        remove: 'Remove',
+        error: 'Error',
+    },
+
+    // Image Picker
+    imagePicker: {
+        permissionsRequired: 'Permissions Required',
+        permissionsMessage: 'Camera and photo library permissions are required to upload photos.',
+        permissionsNotGranted: 'Permissions not granted',
+        userCanceled: 'User canceled',
+        noImageSelected: 'No image selected',
+        noImageCaptured: 'No image captured',
+        pickImageError: 'Failed to pick image. Please try again.',
+        takePhotoError: 'Failed to take photo. Please try again.',
+        addPhoto: 'Add Photo',
+        replacePhoto: 'Replace Photo',
+        takePhoto: 'Take Photo',
+        chooseFromGallery: 'Choose from Gallery',
+        chooseOption: 'Choose an option',
     },
 
     // Onboarding
@@ -57,9 +78,43 @@ export const translations = {
         orTakePhoto: 'Or take a photo',
         snapYourFit: 'Snap your fit',
         aiDescription: 'Capture your outfit with a quick photo. Luxify AI instantly analyzes your style, identifying key pieces and how they work together.',
+        maximumPhotos: 'Maximum Photos',
+        maximumPhotosMessage: 'You can only upload up to 3 photos.',
         // Common
         next: 'Next',
         back: 'Back',
+        // Choose Stylist
+        chooseStylistTitle: 'Choose Your Personal Stylist',
+        chooseStylistSubtitle: "Meet your virtual fashion expert the one who'll guide your entire experience. Each stylist has a unique vibe and approach to fashion.",
+        stylistLearningInfo: "Your stylist has their own vibe but they'll learn from your preferences over time to give you smarter, more personalized outfit recommendations. The more you use Luxify, the better they get at styling you.",
+        connectSocialTitle: 'Connect your Social Media',
+        connectSocialSubtitle: 'By connecting your social media platforms, we can get to know you better and create outfits that match your style.',
+        connectInstagram: 'Connect Instagram',
+        connectFacebook: 'Connect Facebook',
+        connectTiktok: 'Connect Tiktok',
+        // Premium Subscription
+        premiumTitle: 'Unlock Your Premium Style Experience',
+        premiumSubtitle: 'Get personalized outfit recommendations powered by AI - tailored to your shape, taste, and lifestyle.',
+        premiumPlan: 'Luxify Premium',
+        annualPlan: 'Annual Plan',
+        featureUnlimitedAI: 'Unlimited AI Style Analysis',
+        featurePersonalized: 'Personalized Shopping Recommendations',
+        featureAdvanced: 'Advanced Style Insights',
+        startFreeTrial: 'Start your 3-day free trial $99.99 per year after 23/06/2025',
+        startFreeTrialButton: 'Start Free Trial',
+        restorePurchases: 'Restore Purchases',
+        premiumDisclaimer: 'After the trial period, you will be charged **$99.99 annually** unless you cancel at least 24 hours before the trial ends. Your subscription will automatically renew unless canceled. You can cancel anytime in your device\'s settings. View our Terms and Privacy Policy.',
+        termsAndPrivacy: 'Terms and Privacy Policy',
+    },
+
+    // Home
+    home: {
+        welcomeMessage: 'Welcome, Lucia',
+        instructionText: 'Add your pieces to get personalized daily outfits from your closet.',
+        closet: 'Closet',
+        addToCloset: '+ Add to closet',
+        dontKnowWhereToStart: "Don't know where to start?",
+        getStyledByLuxify: 'Get styled by Luxify',
     },
 };
 

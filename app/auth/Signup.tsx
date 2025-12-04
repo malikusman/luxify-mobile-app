@@ -45,7 +45,7 @@ export default function SignUp() {
             </View>
 
             <Formik
-                initialValues={{ email: '', password: '', rememberMe: false }}
+                initialValues={{ email: 'demo@gmail.com', password: '123456', rememberMe: false }}
                 validationSchema={signUpSchema}
                 onSubmit={handleSignUp}
             >

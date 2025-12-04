@@ -11,6 +11,8 @@ export const Colors = {
         background: '#FFFFFF',
         surface: '#F5F5F5',
         card: '#FFFFFF',
+        cardSecondary: '#D9D9D940',
+        tabBarBackground: '#00000014',
 
         // Text Colors
         text: '#090A0A',
@@ -51,7 +53,8 @@ export const Colors = {
         background: '#121212',
         surface: '#1E1E1E',
         card: '#2C2C2C',
-
+        cardSecondary: '#D9D9D940',
+        tabBarBackground: '#FFFFFF14',
         // Text Colors
         text: '#FFFFFF',
         textSecondary: '#AAAAAA',
