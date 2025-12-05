@@ -81,7 +81,12 @@ export default function CustomTabBar() {
                 },
             ]}
         >
-            <View style={[styles.blurContainer, { backgroundColor: colors.tabBarBackground }]}>
+            <BlurView
+                intensity={20}
+                tint="dark"
+                style={[styles.blurContainer, { backgroundColor: 'rgba(255, 255, 255, 0.7)' }]}
+                experimentalBlurMethod='dimezisBlurView'
+            >
                 <View style={styles.tabBar}>
                     {TABS.map((tab) => {
                         const IconComponent = tab.Icon;
@@ -117,7 +122,7 @@ export default function CustomTabBar() {
                         );
                     })}
                 </View>
-            </View>
+            </BlurView>
         </View>
     );
 }
@@ -133,13 +138,13 @@ const styles = StyleSheet.create({
         borderRadius: scaleFontSize(150),
         overflow: 'hidden',
         marginHorizontal: scaleFontSize(24),
-        marginBottom: scaleFontSize(8)
+        marginBottom: scaleFontSize(8),
     },
     tabBar: {
         flexDirection: 'row',
         justifyContent: 'space-around',
         alignItems: 'center',
-        paddingVertical: scaleFontSize(12),
+        paddingVertical: scaleFontSize(10),
         paddingHorizontal: scaleFontSize(8),
         position: 'relative',
     },
@@ -163,7 +168,7 @@ const styles = StyleSheet.create({
     },
     activeBar: {
         position: 'absolute',
-        top: scaleFontSize(-19),
+        top: scaleFontSize(-18),
         width: scaleFontSize(24),
         height: scaleFontSize(4),
         borderBottomLeftRadius: scaleFontSize(3),

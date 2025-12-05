@@ -113,8 +113,28 @@ export const translations = {
         instructionText: 'Add your pieces to get personalized daily outfits from your closet.',
         closet: 'Closet',
         addToCloset: '+ Add to closet',
+        trackYourCloset: 'Track your closet',
         dontKnowWhereToStart: "Don't know where to start?",
         getStyledByLuxify: 'Get styled by Luxify',
+    },
+
+    // Closet
+    closet: {
+        addToClosetTitle: 'Add to closet.',
+        addToClosetDescription: 'Capture your outfit with a quick photo or take a picture of the clothes. Luxify\'s AI instantly analyzes your style, identifying key pieces and how they work together.',
+        close: 'CLOSE',
+        photos: 'PHOTOS',
+        flip: 'FLIP',
+        selectUpToFive: 'Select up to 5 photos',
+        maximumReached: 'You have reached the maximum of 5 photos',
+    },
+
+    // AI Chat
+    aiChat: {
+        greeting: 'Hello, {firstName}',
+        instruction: "I'm ready to help you slay any look. Just tell me the vibe, the plan, or the mood I'll build your perfect combo.",
+        refinePlaceholder: 'Refine your looks...',
+        shopmode: 'Shopmode',
     },
 };
 
