@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput, KeyboardAvoidingView, Platform, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput, KeyboardAvoidingView, Platform, Animated, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import ArrowLeftIcon from '@/src/components/icons/ArrowLeftIcon';
 import MicIcon from '@/src/components/icons/MicIcon';
 import ShopmodeIcon from '@/src/components/icons/ShopmodeIcon';
 import SendIcon from '@/src/components/icons/SendIcon';
+import ProductDetailView from '@/src/components/home/ProductDetailView';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function AIChatScreen() {
@@ -22,6 +23,62 @@ export default function AIChatScreen() {
     const { data } = useSelector((state: RootState) => state.onboarding);
     const firstName = data.firstName || 'Lucia';
     const [refineText, setRefineText] = useState('');
+    const [isShopmodeActive, setIsShopmodeActive] = useState(false);
+    const [selectedOption, setSelectedOption] = useState<'existing' | 'new'>('existing');
+    const [selectedProduct, setSelectedProduct] = useState<any>(null);
+
+    // Dummy product data for existing pieces
+    const existingPiecesProducts = [
+        {
+            id: 'ep1',
+            image: require('@/assets/ep1.png'),
+            title: 'Existing Piece 1',
+            description: 'From your closet',
+            price: '$0',
+        },
+        {
+            id: 'ep2',
+            image: require('@/assets/ep2.png'),
+            title: 'Existing Piece 2',
+            description: 'From your closet',
+            price: '$0',
+        },
+        {
+            id: 'ep3',
+            image: require('@/assets/ep3.png'),
+            title: 'Existing Piece 3',
+            description: 'From your closet',
+            price: '$0',
+        },
+    ];
+
+    // Dummy product data for new look
+    const newLookProducts = [
+        {
+            id: 'nl1',
+            image: require('@/assets/nl1.png'),
+            title: 'New Look Item 1',
+            description: 'Shop this look',
+            price: '$89',
+        },
+        {
+            id: 'nl2',
+            image: require('@/assets/nl2.png'),
+            title: 'New Look Item 2',
+            description: 'Shop this look',
+            price: '$95',
+        },
+        {
+            id: 'nl4',
+            image: require('@/assets/nl4.png'),
+            title: 'New Look Item 3',
+            description: 'Shop this look',
+            price: '$120',
+        },
+    ];
+
+    // Get products based on selected option
+    const dummyProducts = selectedOption === 'existing' ? existingPiecesProducts : newLookProducts;
 
     const outerPulse = useRef(new Animated.Value(1)).current;
     const middlePulse = useRef(new Animated.Value(1)).current;
@@ -65,6 +122,41 @@ export default function AIChatScreen() {
         router.push('/home/(tabs)/' as any);
     };
 
+    const handleShopmodeToggle = () => {
+        setIsShopmodeActive(true);
+    };
+
+    const handleCloseShopmode = () => {
+        setIsShopmodeActive(false);
+    };
+
+    const handleBuyItem = (productId: string) => {
+        const product = dummyProducts.find(p => p.id === productId);
+        if (product) {
+            setSelectedProduct(product);
+        }
+    };
+
+    const handleCloseProductDetail = () => {
+        setSelectedProduct(null);
+    };
+
+    const handleBackFromDetail = () => {
+        setSelectedProduct(null);
+    };
+
+    // If product is selected, show detail view
+    if (selectedProduct) {
+        return (
+            <ProductDetailView
+                product={selectedProduct}
+                onClose={handleCloseProductDetail}
+                onBack={handleBackFromDetail}
+                selectedOption={selectedOption}
+            />
+        );
+    }
+
     return (
         <KeyboardAvoidingView
             style={[styles.container, { backgroundColor: colors.aiChatBackground }]}
@@ -84,9 +176,131 @@ export default function AIChatScreen() {
                         <ArrowLeftIcon size={scaleFontSize(12)} color="#A6A6A6" />
                     </View>
                 </TouchableOpacity>
+                {isShopmodeActive && (
+                    <TouchableOpacity
+                        style={styles.closeButton}
+                        onPress={handleCloseShopmode}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.closeButtonBackground}>
+                            <Ionicons name="close" size={scaleFontSize(16)} color="#A6A6A6" />
+                        </View>
+                    </TouchableOpacity>
+                )}
             </View>
 
-            <View style={styles.content}>
+            {isShopmodeActive ? (
+                <ScrollView 
+                    style={styles.shopmodeContent}
+                    contentContainerStyle={styles.shopmodeContentContainer}
+                    showsVerticalScrollIndicator={false}
+                >
+                    {/* Style Brief Section */}
+                    <View style={styles.styleBriefSection}>
+                        <View style={styles.styleBriefHeader}>
+                            <Image
+                                source={require('@/assets/s1.png')}
+                                style={styles.avatarImage}
+                                resizeMode="cover"
+                            />
+                            <Text style={[styles.styleBriefTitle, { color: colors.text }]}>
+                                Style Brief
+                            </Text>
+                        </View>
+                        <Text style={[styles.styleBriefQuestion, { color: colors.text }]}>
+                            Would you like me to put this outfit together using pieces you already have in your closet, or are you open to trying something new and shopping for a few items?
+                        </Text>
+                        <View style={styles.optionButtons}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.optionButton,
+                                    selectedOption === 'existing' && styles.optionButtonSelected,
+                                    { backgroundColor: selectedOption === 'existing' ? colors.buttonPrimary : colors.buttonSecondary }
+                                ]}
+                                onPress={() => setSelectedOption('existing')}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={[
+                                    styles.optionButtonText,
+                                    { color: selectedOption === 'existing' ? colors.buttonText : colors.buttonTextSecondary }
+                                ]}>
+                                    Use existing pieces
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.optionButton,
+                                    selectedOption === 'new' && styles.optionButtonSelected,
+                                    { backgroundColor: selectedOption === 'new' ? colors.buttonPrimary : colors.buttonSecondary }
+                                ]}
+                                onPress={() => setSelectedOption('new')}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={[
+                                    styles.optionButtonText,
+                                    { color: selectedOption === 'new' ? colors.buttonText : colors.buttonTextSecondary }
+                                ]}>
+                                    Shop new look
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    {/* Event Description */}
+                    <View style={styles.eventDescriptionSection}>
+                        <Text style={[styles.eventDescription, { color: colors.textSecondary }]}>
+                            {firstName}, a Cartagena wedding at 5 PM calls for breezy elegance! We're going for a look that's polished yet relaxed perfect for golden hour vows by the sea. Think breathable fabrics, light colors, and details that pop just enough to stand out without overshadowing the couple...
+                        </Text>
+                    </View>
+
+                    {/* Outfit Suggestions Section */}
+                    <View style={styles.outfitSuggestionsSection}>
+                        <Text style={[styles.outfitSuggestionsTitle, { color: colors.text }]}>
+                            Golden Hour Nuptials
+                        </Text>
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.productsScrollContainer}
+                            style={styles.productsScrollView}
+                        >
+                            {dummyProducts.map((product, index) => (
+                                <View key={product.id} style={[styles.productCard, { backgroundColor: colors.card }]}>
+                                    <Image
+                                        source={product.image}
+                                        style={styles.productImage}
+                                        resizeMode="cover"
+                                    />
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.buyButton,
+                                            { 
+                                                backgroundColor: index === 0 
+                                                    ? colors.buttonPrimary 
+                                                    : colors.bottomBarButtonBackground 
+                                            }
+                                        ]}
+                                        onPress={() => handleBuyItem(product.id)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={[
+                                            styles.buyButtonText,
+                                            { 
+                                                color: index === 0 
+                                                    ? colors.buttonText 
+                                                    : colors.textSecondary 
+                                            }
+                                        ]}>
+                                            {selectedOption === 'existing' ? 'USE ITEM' : 'BUY ITEM'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </ScrollView>
+            ) : (
+                <View style={styles.content}>
                 <View style={styles.imageContainer}>
                     <Image
                         source={require('@/assets/s1.png')}
@@ -148,6 +362,7 @@ export default function AIChatScreen() {
                     </View>
                 </TouchableOpacity>
             </View>
+            )}
 
             <View style={[styles.bottomBarContainer, {  }]}>
                 <View style={[styles.bottomBar, { backgroundColor: 'white' }]}>
@@ -164,7 +379,11 @@ export default function AIChatScreen() {
                             <TouchableOpacity style={[styles.circleButton, { backgroundColor: colors.bottomBarButtonBackground }]} activeOpacity={0.7}>
                                 <Ionicons name="add" size={scaleFontSize(20)} color={colors.text} />
                             </TouchableOpacity>
-                            <TouchableOpacity style={[styles.shopmodeButton, { backgroundColor: colors.bottomBarButtonBackground }]} activeOpacity={0.7}>
+                            <TouchableOpacity 
+                                style={[styles.shopmodeButton, { backgroundColor: colors.bottomBarButtonBackground }]} 
+                                activeOpacity={0.7}
+                                onPress={handleShopmodeToggle}
+                            >
                                 <ShopmodeIcon size={scaleFontSize(16)} color={colors.textSecondary} />
                                 <Text style={[styles.shopmodeText, { color: colors.text }]}>{translations.aiChat.shopmode}</Text>
                             </TouchableOpacity>
@@ -188,8 +407,12 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
     },
     header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         paddingHorizontal: scaleFontSize(20),
         paddingTop: scaleFontSize(12),
+        paddingBottom: scaleFontSize(16),
     },
     backButton: {
         width: scaleFontSize(32),
@@ -315,6 +538,121 @@ const styles = StyleSheet.create({
     shopmodeText: {
         fontSize: scaleFontSize(14),
         fontFamily: FONTS.nunitoMedium,
+    },
+    closeButton: {
+        width: scaleFontSize(32),
+        height: scaleFontSize(32),
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    closeButtonBackground: {
+        width: scaleFontSize(32),
+        height: scaleFontSize(32),
+        borderRadius: scaleFontSize(16),
+        backgroundColor: '#FFFFFF',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    shopmodeContent: {
+        flex: 1,
+    },
+    shopmodeContentContainer: {
+        paddingHorizontal: scaleFontSize(20),
+        paddingTop: scaleFontSize(16),
+        paddingBottom: scaleFontSize(100),
+    },
+    styleBriefSection: {
+        marginBottom: scaleFontSize(24),
+    },
+    styleBriefHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: scaleFontSize(16),
+        gap: scaleFontSize(12),
+    },
+    avatarImage: {
+        width: scaleFontSize(40),
+        height: scaleFontSize(40),
+        borderRadius: scaleFontSize(20),
+    },
+    styleBriefTitle: {
+        fontSize: scaleFontSize(18),
+        fontFamily: FONTS.nunitoBold,
+        fontWeight: '700',
+    },
+    styleBriefQuestion: {
+        fontSize: scaleFontSize(16),
+        fontFamily: FONTS.nunitoRegular,
+        lineHeight: scaleFontSize(24),
+        marginBottom: scaleFontSize(16),
+    },
+    optionButtons: {
+        flexDirection: 'row',
+        gap: scaleFontSize(12),
+    },
+    optionButton: {
+        flex: 1,
+        paddingVertical: scaleFontSize(12),
+        paddingHorizontal: scaleFontSize(16),
+        borderRadius: scaleFontSize(8),
+        borderWidth: 1,
+        borderColor: '#E3E5E5',
+    },
+    optionButtonSelected: {
+        borderColor: '#000000',
+    },
+    optionButtonText: {
+        fontSize: scaleFontSize(14),
+        fontFamily: FONTS.nunitoMedium,
+        textAlign: 'center',
+    },
+    eventDescriptionSection: {
+        marginBottom: scaleFontSize(32),
+    },
+    eventDescription: {
+        fontSize: scaleFontSize(14),
+        fontFamily: FONTS.nunitoRegular,
+        lineHeight: scaleFontSize(20),
+    },
+    outfitSuggestionsSection: {
+        marginBottom: scaleFontSize(24),
+    },
+    outfitSuggestionsTitle: {
+        fontSize: scaleFontSize(24),
+        fontFamily: FONTS.hermannRegular,
+        fontWeight: '400',
+        marginBottom: scaleFontSize(20),
+    },
+    productsScrollView: {
+        marginHorizontal: scaleFontSize(-20),
+    },
+    productsScrollContainer: {
+        paddingHorizontal: scaleFontSize(20),
+        paddingRight: scaleFontSize(32),
+    },
+    productCard: {
+        width: scaleFontSize(240),
+        borderRadius: scaleFontSize(12),
+        overflow: 'hidden',
+        position: 'relative',
+        marginRight: scaleFontSize(12),
+    },
+    productImage: {
+        width: '100%',
+        height: scaleFontSize(280),
+    },
+    buyButton: {
+        position: 'absolute',
+        bottom: scaleFontSize(12),
+        left: scaleFontSize(12),
+        paddingVertical: scaleFontSize(8),
+        paddingHorizontal: scaleFontSize(16),
+        borderRadius: scaleFontSize(6),
+    },
+    buyButtonText: {
+        fontSize: scaleFontSize(12),
+        fontFamily: FONTS.nunitoBold,
+        fontWeight: '700',
     },
 });
 

@@ -5,6 +5,7 @@ import { combineReducers } from '@reduxjs/toolkit';
 import themeReducer from './slices/themeSlice';
 import onboardingReducer from './slices/onboardingSlice';
 import closetReducer from './slices/closetSlice';
+import orderReducer from './slices/orderSlice';
 
 const persistConfig = {
     key: 'root',
@@ -16,6 +17,7 @@ const rootReducer = combineReducers({
     theme: themeReducer,
     onboarding: onboardingReducer,
     closet: closetReducer,
+    order: orderReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
