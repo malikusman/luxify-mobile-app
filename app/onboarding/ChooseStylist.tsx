@@ -10,8 +10,7 @@ import CustomButton from '@/src/components/common/CustomButton';
 import BackButton from '@/src/components/common/BackButton';
 import ChooseStylistStep1, { Stylist } from './components/ChooseStylistStep1';
 import ChooseStylistStep2 from './components/ChooseStylistStep2';
-
-const TOTAL_STEPS = 2;
+import { ONBOARDING } from '@/src/constants/constants';
 
 export default function ChooseStylist() {
     const router = useRouter();
@@ -104,7 +103,7 @@ export default function ChooseStylist() {
             )}
 
             <View style={styles.bottomContainer}>
-                <ProgressBar currentStep={currentStep} totalSteps={TOTAL_STEPS} />
+                <ProgressBar currentStep={currentStep} totalSteps={ONBOARDING.TOTAL_STEPS} />
                 <View style={styles.buttonContainer}>
                     <CustomButton
                         title={t.next}

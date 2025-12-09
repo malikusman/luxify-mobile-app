@@ -9,6 +9,7 @@ import { scaleFontSize } from '@/src/utils/FontSizeUtil';
 import { useThemeColors } from '@/src/theme/Colors';
 import { FONTS } from '@/src/constants/fonts';
 import { translations } from '@/src/constants/translations';
+import { DEFAULTS, AI_CHAT_PRODUCTS, ANIMATION } from '@/src/constants/constants';
 import ArrowLeftIcon from '@/src/components/icons/ArrowLeftIcon';
 import MicIcon from '@/src/components/icons/MicIcon';
 import ShopmodeIcon from '@/src/components/icons/ShopmodeIcon';
@@ -21,64 +22,14 @@ export default function AIChatScreen() {
     const colors = useThemeColors();
     const insets = useSafeAreaInsets();
     const { data } = useSelector((state: RootState) => state.onboarding);
-    const firstName = data.firstName || 'Lucia';
+    const firstName = data.firstName || DEFAULTS.FIRST_NAME;
     const [refineText, setRefineText] = useState('');
     const [isShopmodeActive, setIsShopmodeActive] = useState(false);
     const [selectedOption, setSelectedOption] = useState<'existing' | 'new'>('existing');
     const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
-    // Dummy product data for existing pieces
-    const existingPiecesProducts = [
-        {
-            id: 'ep1',
-            image: require('@/assets/ep1.png'),
-            title: 'Existing Piece 1',
-            description: 'From your closet',
-            price: '$0',
-        },
-        {
-            id: 'ep2',
-            image: require('@/assets/ep2.png'),
-            title: 'Existing Piece 2',
-            description: 'From your closet',
-            price: '$0',
-        },
-        {
-            id: 'ep3',
-            image: require('@/assets/ep3.png'),
-            title: 'Existing Piece 3',
-            description: 'From your closet',
-            price: '$0',
-        },
-    ];
-
-    // Dummy product data for new look
-    const newLookProducts = [
-        {
-            id: 'nl1',
-            image: require('@/assets/nl1.png'),
-            title: 'New Look Item 1',
-            description: 'Shop this look',
-            price: '$89',
-        },
-        {
-            id: 'nl2',
-            image: require('@/assets/nl2.png'),
-            title: 'New Look Item 2',
-            description: 'Shop this look',
-            price: '$95',
-        },
-        {
-            id: 'nl4',
-            image: require('@/assets/nl4.png'),
-            title: 'New Look Item 3',
-            description: 'Shop this look',
-            price: '$120',
-        },
-    ];
-
     // Get products based on selected option
-    const dummyProducts = selectedOption === 'existing' ? existingPiecesProducts : newLookProducts;
+    const dummyProducts = selectedOption === 'existing' ? AI_CHAT_PRODUCTS.existing : AI_CHAT_PRODUCTS.newLook;
 
     const outerPulse = useRef(new Animated.Value(1)).current;
     const middlePulse = useRef(new Animated.Value(1)).current;
@@ -90,22 +41,22 @@ export default function AIChatScreen() {
                 Animated.sequence([
                     Animated.delay(delay),
                     Animated.timing(animatedValue, {
-                        toValue: 1.05,
-                        duration: 2000,
+                        toValue: ANIMATION.PULSE_SCALE_TO,
+                        duration: ANIMATION.PULSE_DURATION,
                         useNativeDriver: true,
                     }),
                     Animated.timing(animatedValue, {
-                        toValue: 1,
-                        duration: 2000,
+                        toValue: ANIMATION.PULSE_SCALE_FROM,
+                        duration: ANIMATION.PULSE_DURATION,
                         useNativeDriver: true,
                     }),
                 ])
             );
         };
 
-        const outerAnim = createPulseAnimation(outerPulse, 0);
-        const middleAnim = createPulseAnimation(middlePulse, 300);
-        const innerAnim = createPulseAnimation(innerPulse, 600);
+        const outerAnim = createPulseAnimation(outerPulse, ANIMATION.OUTER_PULSE_DELAY);
+        const middleAnim = createPulseAnimation(middlePulse, ANIMATION.MIDDLE_PULSE_DELAY);
+        const innerAnim = createPulseAnimation(innerPulse, ANIMATION.INNER_PULSE_DELAY);
 
         outerAnim.start();
         middleAnim.start();

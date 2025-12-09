@@ -12,6 +12,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/src/context/store';
 import { addImage, addMultipleImages } from '@/src/context/slices/closetSlice';
 import { pickMultipleImagesFromGallery } from '@/src/services/imagePickerService';
+import { LIMITS, IMAGE_QUALITY } from '@/src/constants/constants';
 
 export default function AddToClosetScreen() {
     const router = useRouter();
@@ -48,7 +49,7 @@ export default function AddToClosetScreen() {
 
         try {
             const photo = await cameraRef.current.takePictureAsync({
-                quality: 0.8,
+                quality: IMAGE_QUALITY.DEFAULT,
             });
 
             if (photo?.uri) {
@@ -66,7 +67,7 @@ export default function AddToClosetScreen() {
             return;
         }
 
-        const maxToSelect = Math.min(remainingSlots, 5);
+        const maxToSelect = Math.min(remainingSlots, LIMITS.MAX_PHOTOS_SELECT);
         const result = await pickMultipleImagesFromGallery(maxToSelect);
         
         if (result.success) {

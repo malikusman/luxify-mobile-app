@@ -14,15 +14,14 @@ import {
     pickImageFromGallery,
     showImageSourceDialog,
 } from '@/src/services/imagePickerService';
-
-const MAX_PHOTOS = 3;
+import { LIMITS, IMAGE_QUALITY } from '@/src/constants/constants';
 
 export default function PhotoUpload() {
     const router = useRouter();
     const colors = useThemeColors();
     const t = translations.onboarding;
     const imagePickerT = translations.imagePicker;
-    const [uploadedPhotos, setUploadedPhotos] = useState<(string | undefined)[]>(Array(MAX_PHOTOS).fill(undefined));
+    const [uploadedPhotos, setUploadedPhotos] = useState<(string | undefined)[]>(Array(LIMITS.MAX_PHOTOS).fill(undefined));
 
     const handleBack = () => {
         router.back();
@@ -36,7 +35,7 @@ export default function PhotoUpload() {
         }
 
         const result = await pickMultipleImagesFromGallery(emptySlots, {
-            quality: 0.8,
+            quality: IMAGE_QUALITY.DEFAULT,
         });
 
         if (result.success && result.uris) {
@@ -64,7 +63,7 @@ export default function PhotoUpload() {
         }
 
         const result = await takePhotoWithCamera({
-            quality: 0.8,
+            quality: IMAGE_QUALITY.DEFAULT,
             allowsEditing: true,
         });
 
@@ -88,7 +87,7 @@ export default function PhotoUpload() {
 
         const onTakePhoto = async () => {
             const result = await takePhotoWithCamera({
-                quality: 0.8,
+                quality: IMAGE_QUALITY.DEFAULT,
                 allowsEditing: true,
             });
 
@@ -105,7 +104,7 @@ export default function PhotoUpload() {
 
         const onPickFromGallery = async () => {
             const result = await pickImageFromGallery({
-                quality: 0.8,
+                quality: IMAGE_QUALITY.DEFAULT,
             });
 
             if (result.success && result.uri) {
@@ -166,7 +165,7 @@ export default function PhotoUpload() {
 
                     <View style={styles.uploadSection}>
                         <View style={styles.photoPlaceholders}>
-                            {[0, 1, 2].map((index) => {
+                            {Array.from({ length: LIMITS.MAX_PHOTOS }, (_, index) => index).map((index) => {
                                 const photoUri = uploadedPhotos[index];
                                 return (
                                     <TouchableOpacity
@@ -213,12 +212,12 @@ export default function PhotoUpload() {
                                 {
                                     backgroundColor: colors.surface,
                                     borderColor: colors.border,
-                                    opacity: uploadedPhotos.filter(photo => photo).length >= MAX_PHOTOS ? 0.5 : 1,
+                                    opacity: uploadedPhotos.filter(photo => photo).length >= LIMITS.MAX_PHOTOS ? 0.5 : 1,
                                 },
                             ]}
                             onPress={handleUploadPhotos}
                             activeOpacity={0.7}
-                            disabled={uploadedPhotos.filter(photo => photo).length >= MAX_PHOTOS}
+                            disabled={uploadedPhotos.filter(photo => photo).length >= LIMITS.MAX_PHOTOS}
                         >
                             <Text style={[styles.uploadButtonText, { color: colors.textSecondary }]}>
                                 {t.uploadPhotos}
@@ -242,12 +241,12 @@ export default function PhotoUpload() {
                                 {
                                     backgroundColor: colors.surface,
                                     borderColor: colors.border,
-                                    opacity: uploadedPhotos.filter(photo => photo).length >= MAX_PHOTOS ? 0.5 : 1,
+                                    opacity: uploadedPhotos.filter(photo => photo).length >= LIMITS.MAX_PHOTOS ? 0.5 : 1,
                                 },
                             ]}
                             onPress={handleTakePhoto}
                             activeOpacity={0.7}
-                            disabled={uploadedPhotos.filter(photo => photo).length >= MAX_PHOTOS}
+                            disabled={uploadedPhotos.filter(photo => photo).length >= LIMITS.MAX_PHOTOS}
                         >
                             <Text style={[styles.takePhotoButtonText, { color: colors.textSecondary }]}>
                                 {t.snapYourFit}

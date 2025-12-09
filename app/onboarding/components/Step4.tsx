@@ -9,6 +9,7 @@ import { step4Schema } from '@/src/validation/authSchemas';
 import { FONTS } from '@/src/constants/fonts';
 import CustomInput from '@/src/components/common/CustomInput';
 import Step4Icon from '@/src/components/icons/Step4Icon';
+import { BRANDS, LIMITS } from '@/src/constants/constants';
 
 interface Step4Props {
     initialValues: { selectedBrands: string[] };
@@ -18,19 +19,6 @@ interface Step4Props {
 export interface Step4Ref {
     submitForm: () => void;
 }
-
-const BRANDS = [
-    'Prada',
-    'Adidas',
-    'AMI Paris',
-    'ASOS',
-    'Nike',
-    'Gucci',
-    'Zara',
-    'H&M',
-    'Uniqlo',
-    'Levi\'s',
-];
 
 const Step4 = forwardRef<Step4Ref, Step4Props>(({ initialValues, onSubmit }, ref) => {
     const colors = useThemeColors();
@@ -69,7 +57,7 @@ const Step4 = forwardRef<Step4Ref, Step4Props>(({ initialValues, onSubmit }, ref
                 };
 
                 const isSelected = (brand: string) => values.selectedBrands.includes(brand);
-                const hasMinimumBrands = values.selectedBrands.length >= 3;
+                const hasMinimumBrands = values.selectedBrands.length >= LIMITS.MIN_BRANDS;
 
                 return (
                     <View style={styles.container}>

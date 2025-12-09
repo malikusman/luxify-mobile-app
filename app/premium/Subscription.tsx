@@ -8,6 +8,7 @@ import { FONTS } from '@/src/constants/fonts';
 import BackButton from '@/src/components/common/BackButton';
 import CustomButton from '@/src/components/common/CustomButton';
 import Logo from '@/src/components/common/Logo';
+import { URLS } from '@/src/constants/constants';
 
 export default function Subscription() {
     const router = useRouter();
@@ -27,11 +28,11 @@ export default function Subscription() {
     };
 
     const handleTermsPress = () => {
-        Linking.openURL('https://luxify.com/terms');
+        Linking.openURL(URLS.TERMS);
     };
 
     const handlePrivacyPress = () => {
-        Linking.openURL('https://luxify.com/privacy');
+        Linking.openURL(URLS.PRIVACY);
     };
 
     const renderDisclaimer = () => {

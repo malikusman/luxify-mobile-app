@@ -4,45 +4,18 @@ import { scaleFontSize } from '@/src/utils/FontSizeUtil';
 import { useThemeColors } from '@/src/theme/Colors';
 import { translations } from '@/src/constants/translations';
 import { FONTS } from '@/src/constants/fonts';
+import { STYLISTS, CAROUSEL, ANIMATION, type Stylist } from '@/src/constants/constants';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = SCREEN_WIDTH * 0.55;
-const CARD_SPACING = scaleFontSize(10);
+const CARD_WIDTH = SCREEN_WIDTH * CAROUSEL.CARD_WIDTH_RATIO;
+const CARD_SPACING = scaleFontSize(CAROUSEL.CARD_SPACING);
 const SIDE_PADDING = (SCREEN_WIDTH - CARD_WIDTH) / 2;
 const ITEM_WIDTH = CARD_WIDTH + CARD_SPACING;
-
-export interface Stylist {
-    id: string;
-    name: string;
-    description: string;
-    image?: any;
-}
 
 interface ChooseStylistStep1Props {
     selectedStylist: Stylist | null;
     onSelectStylist: (stylist: Stylist) => void;
 }
-
-const DUMMY_STYLISTS: Stylist[] = [
-    {
-        id: '1',
-        name: 'Celine',
-        description: "Bonjour, darling. I'm your AI stylist, expertly trained in luxury fashion. From elevated streetwear to full-glam gala looks, I curate outfits that always look expensive, polished, and on point. I work with high-end designers, runway trends, and statement pieces to make sure you step out looking like a million dollars — no matter the occasion.",
-        image: require('@/assets/s1.png'),
-    },
-    {
-        id: '2',
-        name: 'Harper',
-        description: "Hello Lucia. I'm here to ensure you never leave the house looking anything less than extraordinary. Let's begin",
-        image: require('@/assets/s2.png'),
-    },
-    {
-        id: '3',
-        name: 'Carlos',
-        description: "Hey there! I'm Carlos, your go-to stylist for modern, versatile looks. I specialize in creating outfits that seamlessly transition from day to night, mixing classic pieces with contemporary trends.",
-        image: require('@/assets/s3.png'),
-    },
-];
 
 export default function ChooseStylistStep1({ selectedStylist, onSelectStylist }: ChooseStylistStep1Props) {
     const colors = useThemeColors();
@@ -51,15 +24,15 @@ export default function ChooseStylistStep1({ selectedStylist, onSelectStylist }:
     const [currentIndex, setCurrentIndex] = useState(0);
 
     useEffect(() => {
-        if (DUMMY_STYLISTS.length > 0 && !selectedStylist) {
-            onSelectStylist(DUMMY_STYLISTS[0]);
+        if (STYLISTS.length > 0 && !selectedStylist) {
+            onSelectStylist(STYLISTS[0]);
         }
     }, []);
 
     const handleScroll = (event: any) => {
         const contentOffsetX = event.nativeEvent.contentOffset.x;
         const index = Math.round(contentOffsetX / ITEM_WIDTH);
-        const clampedIndex = Math.max(0, Math.min(index, DUMMY_STYLISTS.length - 1));
+        const clampedIndex = Math.max(0, Math.min(index, STYLISTS.length - 1));
         if (clampedIndex !== currentIndex) {
             setCurrentIndex(clampedIndex);
         }
@@ -69,9 +42,9 @@ export default function ChooseStylistStep1({ selectedStylist, onSelectStylist }:
         const contentOffsetX = event.nativeEvent.contentOffset.x;
         const scrollPosition = contentOffsetX;
         const index = Math.round(scrollPosition / ITEM_WIDTH);
-        const clampedIndex = Math.max(0, Math.min(index, DUMMY_STYLISTS.length - 1));
-        if (DUMMY_STYLISTS[clampedIndex]) {
-            onSelectStylist(DUMMY_STYLISTS[clampedIndex]);
+        const clampedIndex = Math.max(0, Math.min(index, STYLISTS.length - 1));
+        if (STYLISTS[clampedIndex]) {
+            onSelectStylist(STYLISTS[clampedIndex]);
             const targetOffset = clampedIndex * ITEM_WIDTH;
             flatListRef.current?.scrollToOffset({ offset: targetOffset, animated: true });
         }
@@ -85,11 +58,11 @@ export default function ChooseStylistStep1({ selectedStylist, onSelectStylist }:
         let scale = 1;
         
         if (distance === 1) {
-            opacity = 0.5;
-            scale = 0.95;
+            opacity = ANIMATION.OPACITY_SIDE_CARD;
+            scale = ANIMATION.SCALE_SIDE_CARD;
         } else if (distance > 1) {
-            opacity = 0.3;
-            scale = 0.9;
+            opacity = ANIMATION.OPACITY_DISTANT_CARD;
+            scale = ANIMATION.SCALE_DISTANT_CARD;
         }
 
         return (
@@ -127,7 +100,7 @@ export default function ChooseStylistStep1({ selectedStylist, onSelectStylist }:
             <View style={styles.carouselContainer}>
                 <FlatList
                     ref={flatListRef}
-                    data={DUMMY_STYLISTS}
+                    data={STYLISTS}
                     renderItem={renderStylistCard}
                     keyExtractor={(item) => item.id}
                     horizontal

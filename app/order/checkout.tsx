@@ -9,15 +9,7 @@ import ArrowLeftIcon from '@/src/components/icons/ArrowLeftIcon';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/src/context/store';
-
-interface OrderItem {
-    id: string;
-    image: any;
-    brand: string;
-    title: string;
-    price: string;
-    size?: string;
-}
+import { DEFAULTS, DEFAULT_ORDER_ITEMS } from '@/src/constants/constants';
 
 export default function CheckoutScreen() {
     const router = useRouter();
@@ -25,42 +17,12 @@ export default function CheckoutScreen() {
     const insets = useSafeAreaInsets();
     const { data } = useSelector((state: RootState) => state.onboarding);
     const { selectedProduct } = useSelector((state: RootState) => state.order);
-    const firstName = data.firstName || 'Lucia';
+    const firstName = data.firstName || DEFAULTS.FIRST_NAME;
     const [hasVoucher, setHasVoucher] = useState(true);
 
     const mainProductImage = selectedProduct?.image || require('@/assets/correctImage1.png');
 
-    const orderItems: OrderItem[] = [
-        {
-            id: 'acc1',
-            image: require('@/assets/d1.png'),
-            brand: 'Tory Burch',
-            title: 'Designer Sandals Pierced Multi-Strap Heeled Sandal',
-            price: '$200.00',
-            size: '7',
-        },
-        {
-            id: 'acc2',
-            image: require('@/assets/d2.png'),
-            brand: 'Savetter',
-            title: 'Savette Florence 25 leather tote bag',
-            price: '$200.00',
-        },
-        {
-            id: 'acc3',
-            image: require('@/assets/d3.png'),
-            brand: 'Jil Sander',
-            title: 'Jil Sander Twisted hoop earings',
-            price: '$200.00',
-        },
-        {
-            id: 'acc4',
-            image: require('@/assets/d4.png'),
-            brand: 'Rotate Birger',
-            title: 'Designer Sandals Pierced Multi-Strap Heeled Sandal',
-            price: '$200.00',
-        },
-    ];
+    const orderItems = DEFAULT_ORDER_ITEMS;
 
     const handleBack = () => {
         router.back();

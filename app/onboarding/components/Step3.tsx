@@ -8,6 +8,7 @@ import { step3Schema } from '@/src/validation/authSchemas';
 import { FONTS } from '@/src/constants/fonts';
 import CustomInput from '@/src/components/common/CustomInput';
 import Step3Icon from '@/src/components/icons/Step3Icon';
+import { OCCUPATIONS } from '@/src/constants/constants';
 
 interface Step3Props {
     initialValues: { occupation: string };
@@ -17,8 +18,6 @@ interface Step3Props {
 export interface Step3Ref {
     submitForm: () => void;
 }
-
-const OCCUPATION_OPTIONS = ['Lawyer', 'Marketing lead', 'Software Engineer'];
 
 const Step3 = forwardRef<Step3Ref, Step3Props>(({ initialValues, onSubmit }, ref) => {
     const colors = useThemeColors();
@@ -78,7 +77,7 @@ const Step3 = forwardRef<Step3Ref, Step3Props>(({ initialValues, onSubmit }, ref
                         </Text>
 
                         <View style={styles.optionsContainer}>
-                            {OCCUPATION_OPTIONS.map((option) => {
+                            {OCCUPATIONS.map((option) => {
                                 const isSelected = values.occupation === option;
                                 return (
                                     <TouchableOpacity
