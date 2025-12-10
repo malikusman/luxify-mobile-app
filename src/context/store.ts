@@ -3,21 +3,27 @@ import { persistStore, persistReducer } from 'redux-persist';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { combineReducers } from '@reduxjs/toolkit';
 import themeReducer from './slices/themeSlice';
-import onboardingReducer from './slices/onboardingSlice';
+import profileReducer from './slices/profileSlice';
 import closetReducer from './slices/closetSlice';
 import orderReducer from './slices/orderSlice';
+import authReducer from './slices/authSlice';
+import awarenessReducer from './slices/awarenessSlice';
+import styleProfileReducer from './slices/styleProfileSlice';
 
 const persistConfig = {
     key: 'root',
     storage: AsyncStorage,
-    whitelist: ['theme', 'closet'],
+    whitelist: ['theme', 'closet', 'auth', 'awareness'],
 };
 
 const rootReducer = combineReducers({
     theme: themeReducer,
-    onboarding: onboardingReducer,
+    profile: profileReducer,
     closet: closetReducer,
     order: orderReducer,
+    auth: authReducer,
+    awareness: awarenessReducer,
+    styleProfile: styleProfileReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
@@ -27,7 +33,7 @@ export const store = configureStore({
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({
             serializableCheck: {
-                ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
+                ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE', 'persist/PURGE'],
             },
         }),
 });

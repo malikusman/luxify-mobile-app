@@ -6,14 +6,14 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import CheckoutScreen from '../checkout';
 import themeReducer from '@/src/context/slices/themeSlice';
 import orderReducer from '@/src/context/slices/orderSlice';
-import onboardingReducer from '@/src/context/slices/onboardingSlice';
+import profileReducer from '@/src/context/slices/profileSlice';
 
 const createMockStore = (initialState = {}) => {
   return configureStore({
     reducer: {
       theme: themeReducer,
       order: orderReducer,
-      onboarding: onboardingReducer,
+      profile: profileReducer,
     },
     preloadedState: {
       theme: { isDarkMode: false },
@@ -26,7 +26,7 @@ const createMockStore = (initialState = {}) => {
           price: '$100.00',
         },
       },
-      onboarding: { data: { firstName: 'Lucia' } },
+      profile: { data: { firstName: 'Lucia' } },
       ...initialState,
     },
   });

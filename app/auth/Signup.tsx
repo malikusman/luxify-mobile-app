@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, TextInput, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { FontAwesome, AntDesign, MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { Formik } from 'formik';
@@ -15,19 +15,47 @@ import BackButton from '@/src/components/common/BackButton';
 import SocialLoginButton from '@/src/components/common/SocialLoginButton';
 import Logo from '@/src/components/common/Logo';
 import GoogleIcon from '@/src/components/icons/GoogleIcon';
+import { useSignUp } from '@/src/services/modules/auth/authHooks';
+import { useToast } from '@/src/context/ToastContext';
+import { getErrorMessage } from '@/src/utils/errorHandler';
 
 export default function SignUp() {
     const router = useRouter();
     const colors = useThemeColors();
     const t = translations.auth;
+    const { showError } = useToast();
 
     const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const passwordInputRef = useRef<TextInput>(null);
+    const confirmPasswordInputRef = useRef<TextInput>(null);
+    const firstNameInputRef = useRef<TextInput>(null);
+    const lastNameInputRef = useRef<TextInput>(null);
 
-    const handleSignUp = (values: { email: string; password: string; rememberMe: boolean }) => {
-        console.log('Sign up with:', values);
-        router.push('/onboarding/StartSetup');
+    const signUpMutation = useSignUp();
+
+    const handleSignUp = async (values: { 
+        email: string; 
+        password: string; 
+        password_confirmation: string;
+        first_name: string;
+        last_name: string;
+        rememberMe: boolean;
+    }) => {
+        try {
+            await signUpMutation.mutateAsync({
+                email: values.email,
+                password: values.password,
+                password_confirmation: values.password_confirmation,
+                first_name: values.first_name,
+                last_name: values.last_name,
+            });
+            router.replace('/home/(tabs)');
+        } catch (error: any) {
+            const errorMessage = getErrorMessage(error);
+            showError(errorMessage || 'An error occurred during sign up. Please try again.');
+        }
     };
 
     const handleSignIn = () => {
@@ -45,7 +73,14 @@ export default function SignUp() {
             </View>
 
             <Formik
-                initialValues={{ email: 'demo@gmail.com', password: '123456', rememberMe: false }}
+                initialValues={{ 
+                    email: '', 
+                    password: '', 
+                    password_confirmation: '',
+                    first_name: '',
+                    last_name: '',
+                    rememberMe: false 
+                }}
                 validationSchema={signUpSchema}
                 onSubmit={handleSignUp}
             >
@@ -64,6 +99,54 @@ export default function SignUp() {
                             <Text style={[styles.titleText, { color: colors.text }]}>
                                 {t.createAccount}
                             </Text>
+
+                            <CustomInput
+                                ref={firstNameInputRef}
+                                placeholder={translations.onboarding.firstNamePlaceholder}
+                                value={values.first_name}
+                                onChangeText={handleChange('first_name')}
+                                onBlur={handleBlur('first_name')}
+                                autoCapitalize="words"
+                                autoCorrect={false}
+                                returnKeyType="next"
+                                onSubmitEditing={() => lastNameInputRef.current?.focus()}
+                                icon={
+                                    <Ionicons
+                                        name="person-outline"
+                                        size={scaleFontSize(20)}
+                                        color={values.first_name ? colors.text : colors.textSecondary}
+                                    />
+                                }
+                            />
+                            {touched.first_name && errors.first_name && (
+                                <Text style={[styles.errorText, { color: colors.error }]}>
+                                    {errors.first_name}
+                                </Text>
+                            )}
+
+                            <CustomInput
+                                ref={lastNameInputRef}
+                                placeholder={translations.onboarding.lastNamePlaceholder}
+                                value={values.last_name}
+                                onChangeText={handleChange('last_name')}
+                                onBlur={handleBlur('last_name')}
+                                autoCapitalize="words"
+                                autoCorrect={false}
+                                returnKeyType="next"
+                                onSubmitEditing={() => passwordInputRef.current?.focus()}
+                                icon={
+                                    <Ionicons
+                                        name="person-outline"
+                                        size={scaleFontSize(20)}
+                                        color={values.last_name ? colors.text : colors.textSecondary}
+                                    />
+                                }
+                            />
+                            {touched.last_name && errors.last_name && (
+                                <Text style={[styles.errorText, { color: colors.error }]}>
+                                    {errors.last_name}
+                                </Text>
+                            )}
 
                             <CustomInput
                                 placeholder={t.emailPlaceholder}
@@ -98,8 +181,8 @@ export default function SignUp() {
                                 secureTextEntry={!showPassword}
                                 autoCapitalize="none"
                                 autoCorrect={false}
-                                returnKeyType="done"
-                                onSubmitEditing={() => handleSubmit()}
+                                returnKeyType="next"
+                                onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
                                 icon={
                                     <Ionicons
                                         name="lock-closed-outline"
@@ -122,6 +205,39 @@ export default function SignUp() {
                                 </Text>
                             )}
 
+                            <CustomInput
+                                ref={confirmPasswordInputRef}
+                                placeholder="Confirm password"
+                                value={values.password_confirmation}
+                                onChangeText={handleChange('password_confirmation')}
+                                onBlur={handleBlur('password_confirmation')}
+                                secureTextEntry={!showConfirmPassword}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                returnKeyType="done"
+                                onSubmitEditing={() => handleSubmit()}
+                                icon={
+                                    <Ionicons
+                                        name="lock-closed-outline"
+                                        size={scaleFontSize(20)}
+                                        color={values.password_confirmation ? colors.text : colors.textSecondary}
+                                    />
+                                }
+                                rightIcon={
+                                    <Ionicons
+                                        name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                                        size={scaleFontSize(20)}
+                                        color={colors.textSecondary}
+                                    />
+                                }
+                                onRightIconPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                            />
+                            {touched.password_confirmation && errors.password_confirmation && (
+                                <Text style={[styles.errorText, { color: colors.error }]}>
+                                    {errors.password_confirmation}
+                                </Text>
+                            )}
+
                             <View style={styles.checkboxContainer}>
                                 <CustomCheckbox
                                     label={t.rememberMe}
@@ -132,12 +248,20 @@ export default function SignUp() {
 
                             <View style={styles.signUpButtonContainer}>
                                 <CustomButton
-                                    title={t.signUp}
+                                    title={signUpMutation.isPending ? 'Signing up...' : t.signUp}
                                     backgroundColor={colors.buttonPrimary}
                                     textColor={colors.buttonText}
                                     borderColor={colors.buttonPrimary}
                                     onPress={() => handleSubmit()}
+                                    disabled={signUpMutation.isPending}
                                 />
+                                {signUpMutation.isPending && (
+                                    <ActivityIndicator 
+                                        size="small" 
+                                        color={colors.buttonText} 
+                                        style={styles.loader}
+                                    />
+                                )}
                             </View>
 
                             <View style={styles.dividerContainer}>
@@ -277,5 +401,8 @@ const styles = StyleSheet.create({
         lineHeight: scaleFontSize(24),
         fontFamily: FONTS.hermannRegular,
         fontWeight: '400',
+    },
+    loader: {
+        marginTop: scaleFontSize(8),
     },
 });

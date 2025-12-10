@@ -67,7 +67,7 @@ export default function ProductDetailView({ product, onClose, onBack, selectedOp
     const dispatch = useDispatch();
     const colors = useThemeColors();
     const insets = useSafeAreaInsets();
-    const { data } = useSelector((state: RootState) => state.onboarding);
+    const { data } = useSelector((state: RootState) => state.profile);
     const firstName = data.firstName || 'Lucia';
     const [refineText, setRefineText] = useState('');
 

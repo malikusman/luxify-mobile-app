@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import { FONTS } from '@/src/constants/fonts';
 import Logo from '@/src/components/common/Logo';
 import CustomTabBar from '@/src/components/home/CustomTabBar';
 import Header from '@/src/components/home/Header';
+import { useUserProfile, useUserProfileSelector, useStyleProfile, useStyleProfileSelector } from '@/src/services';
 
 export default function HomeScreen() {
     const router = useRouter();
@@ -19,6 +20,40 @@ export default function HomeScreen() {
     const t = translations.home;
     const insets = useSafeAreaInsets();
     const { images, maxImages } = useSelector((state: RootState) => state.closet);
+    
+    const { isLoading: isLoadingUserProfile, error: userProfileError } = useUserProfile();
+    const userProfile = useUserProfileSelector();
+
+    const { isLoading: isLoadingStyleProfile, error: styleProfileError } = useStyleProfile();
+    const styleProfile = useStyleProfileSelector();
+
+    useEffect(() => {
+        if (userProfile) {
+            console.log('=== User Profile (Available across app) ===');
+            console.log(JSON.stringify(userProfile, null, 2));
+        }
+        
+        if (styleProfile) {
+            console.log('=== Style Profile (Available across app) ===');
+            console.log(JSON.stringify(styleProfile, null, 2));
+        }
+        
+        if (isLoadingUserProfile) {
+            console.log('Loading user profile...');
+        }
+        
+        if (isLoadingStyleProfile) {
+            console.log('Loading style profile...');
+        }
+        
+        if (userProfileError) {
+            console.error('Error loading user profile:', userProfileError);
+        }
+        
+        if (styleProfileError) {
+            console.error('Error loading style profile:', styleProfileError);
+        }
+    }, [userProfile, styleProfile, isLoadingUserProfile, isLoadingStyleProfile, userProfileError, styleProfileError]);
     
     const handleAddToCloset = () => {
         if (images.length >= maxImages) {

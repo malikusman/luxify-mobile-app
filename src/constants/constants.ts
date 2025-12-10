@@ -41,19 +41,19 @@ export const STYLISTS: Stylist[] = [
         id: '1',
         name: 'Celine',
         description: "Bonjour, darling. I'm your AI stylist, expertly trained in luxury fashion. From elevated streetwear to full-glam gala looks, I curate outfits that always look expensive, polished, and on point. I work with high-end designers, runway trends, and statement pieces to make sure you step out looking like a million dollars — no matter the occasion.",
-        image: require('@/assets/s1.png'),
+        image: require('@/assets/celiene.png'),
     },
     {
         id: '2',
         name: 'Harper',
         description: "Hello Lucia. I'm here to ensure you never leave the house looking anything less than extraordinary. Let's begin",
-        image: require('@/assets/s2.png'),
+        image: require('@/assets/ava.png'),
     },
     {
         id: '3',
         name: 'Carlos',
         description: "Hey there! I'm Carlos, your go-to stylist for modern, versatile looks. I specialize in creating outfits that seamlessly transition from day to night, mixing classic pieces with contemporary trends.",
-        image: require('@/assets/s3.png'),
+        image: require('@/assets/s2.png'),
     },
 ];
 
@@ -61,6 +61,13 @@ export const OCCUPATIONS = [
     'Lawyer',
     'Marketing lead',
     'Software Engineer',
+] as const;
+
+export const OCCASIONS = [
+    'Daily',
+    'Work',
+    'Weddings',
+    'Party',
 ] as const;
 
 export const BRANDS = [

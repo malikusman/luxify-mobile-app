@@ -14,6 +14,7 @@ export const Colors = {
         card: '#FFFFFF',
         cardSecondary: '#D9D9D940',
         tabBarBackground: '#00000014',
+        awarenessBackground: '#FFFFFF',
 
         // Text Colors
         text: '#090A0A',
@@ -50,6 +51,9 @@ export const Colors = {
 
         // Bottom Bar Button Colors
         bottomBarButtonBackground: '#F0F0F0',
+        
+        // Success Icon Background
+        successIconBackground: '#FAFAFA',
     },
     dark: {
         // Primary Colors
@@ -64,6 +68,7 @@ export const Colors = {
         card: '#2C2C2C',
         cardSecondary: '#D9D9D940',
         tabBarBackground: '#FFFFFF14',
+        awarenessBackground: '#E7E8E9',
         // Text Colors
         text: '#FFFFFF',
         textSecondary: '#AAAAAA',
@@ -101,6 +106,9 @@ export const Colors = {
 
         // Bottom Bar Button Colors
         bottomBarButtonBackground: '#F0F0F0',
+        
+        // Success Icon Background
+        successIconBackground: '#FAFAFA',
     },
 };
 

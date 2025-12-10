@@ -10,6 +10,23 @@ export const translations = {
         dontHaveAccount: "Don't have an account? ",
         signUp: 'Sign up',
         createAccount: 'Create Your Account',
+        forgotPassword: 'Forgot password?',
+        forgotPasswordTitle: 'Forgot password?',
+        forgotPasswordSubtitle: "Enter email associated with your account and we'll send an email with instructions to reset your password",
+        enterYourEmail: 'Enter your email here',
+        sendInstructions: 'Send Instructions',
+        verificationCode: 'Verification code',
+        verificationCodeSubtitle: 'Please enter the verification code we sent to your email address',
+        resendIn: 'Resend in {time}',
+        resendCode: 'Resend code',
+        createNewPassword: 'Create new password',
+        createNewPasswordSubtitle: 'Your new password must be different from previously used password',
+        newPassword: 'New Password',
+        confirmPassword: 'Confirm Password',
+        confirm: 'Confirm',
+        passwordChanged: 'Your password has been changed',
+        passwordChangedSubtitle: 'Welcome back Discover now',
+        backToHome: 'Back To Home',
         emailPlaceholder: 'Email',
         passwordPlaceholder: 'Password',
         rememberMe: 'Remember me',
@@ -44,6 +61,19 @@ export const translations = {
         chooseOption: 'Choose an option',
     },
 
+    // Awareness
+    awareness: {
+        introTitle: 'Welcome to Luxify',
+        introSubtitle: "Before you start, let's get to know your style.",
+        introButton: "I'm Ready",
+        stylistTitle: 'Meet Your personal AI Stylist',
+        stylistSubtitle: 'Discover AI Styling, tailored looks and digital wardrobe designed for you',
+        discoverTitle: 'Discover something new',
+        discoverSubtitle: 'Special new arrivals just for you',
+        next: 'Next',
+        skip: 'Skip',
+    },
+
     // Onboarding
     onboarding: {
         successful: 'Successful',
@@ -63,7 +93,15 @@ export const translations = {
         step3Subtitle: "Knowing your job helps us suggest outfits that actually fit your daily routine.",
         occupationPlaceholder: 'Type occupation here',
         orSelectOne: 'Or select one:',
-        // Step 4
+        // Step 4 (Gender Selection)
+        selectGenderTitle: 'Who are we styling for?',
+        selectGenderSubtitle: 'This helps us personalize your style recommendations.',
+        // Step 5 (Occupation)
+        // Step 6 (Occasion)
+        selectOccasionTitle: 'Tell us when do you usually need styling help?',
+        selectOccasionSubtitle: 'Your AI stylist will suggest looks for every occasion',
+        occasionPlaceholder: 'Type occasion here',
+        // Step 7 (Brands)
         step4Title: 'Pick your favorite brands',
         step4Subtitle: "Select the brands that match your style — this helps us recommend outfits you'll actually want to wear.",
         findBrands: 'Find brands',
@@ -92,6 +130,23 @@ export const translations = {
         connectInstagram: 'Connect Instagram',
         connectFacebook: 'Connect Facebook',
         connectTiktok: 'Connect Tiktok',
+        // Social Media Photo Selection
+        selectPhotosFrom: 'Select Photos from {platform}',
+        loadingPhotos: 'Loading your photos...',
+        noPhotosFound: 'No photos found',
+        selectedPhotosCount: 'Selected: {count}',
+        maxSelectionReached: 'Maximum Selection Reached',
+        maxSelectionMessage: 'You can only select up to {max} photos.',
+        noPhotosSelected: 'No Photos Selected',
+        selectAtLeastOnePhoto: 'Please select at least one photo to continue.',
+        confirmSelection: 'Confirm Selection',
+        retry: 'Retry',
+        platformConnectedSuccess: '{platform} connected successfully!',
+        platformConnectionFailed: 'Failed to connect platform',
+        connectionError: 'Connection Error',
+        photosSavedSuccess: '{count} photos saved successfully!',
+        photosSaveFailed: 'Failed to save photos',
+        fetchPhotosError: 'Failed to fetch photos. Please try again.',
         // Premium Subscription
         premiumTitle: 'Unlock Your Premium Style Experience',
         premiumSubtitle: 'Get personalized outfit recommendations powered by AI - tailored to your shape, taste, and lifestyle.',

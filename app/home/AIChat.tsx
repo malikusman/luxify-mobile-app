@@ -21,7 +21,7 @@ export default function AIChatScreen() {
     const router = useRouter();
     const colors = useThemeColors();
     const insets = useSafeAreaInsets();
-    const { data } = useSelector((state: RootState) => state.onboarding);
+    const { data } = useSelector((state: RootState) => state.profile);
     const firstName = data.firstName || DEFAULTS.FIRST_NAME;
     const [refineText, setRefineText] = useState('');
     const [isShopmodeActive, setIsShopmodeActive] = useState(false);
