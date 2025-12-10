@@ -7,6 +7,15 @@ export const signUpSchema = Yup.object().shape({
     password: Yup.string()
         .min(6, 'Password must be at least 6 characters')
         .required('Password is required'),
+    password_confirmation: Yup.string()
+        .oneOf([Yup.ref('password')], 'Passwords must match')
+        .required('Please confirm your password'),
+    first_name: Yup.string()
+        .required('First name is required')
+        .min(2, 'First name must be at least 2 characters'),
+    last_name: Yup.string()
+        .required('Last name is required')
+        .min(2, 'Last name must be at least 2 characters'),
     rememberMe: Yup.boolean(),
 });
 

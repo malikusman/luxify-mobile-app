@@ -15,6 +15,9 @@ describe('authSchemas', () => {
       const validData = {
         email: 'test@example.com',
         password: 'password123',
+        password_confirmation: 'password123',
+        first_name: 'John',
+        last_name: 'Doe',
         rememberMe: false,
       };
 
@@ -25,6 +28,9 @@ describe('authSchemas', () => {
       const invalidData = {
         email: 'invalid-email',
         password: 'password123',
+        password_confirmation: 'password123',
+        first_name: 'John',
+        last_name: 'Doe',
         rememberMe: false,
       };
 
@@ -34,6 +40,9 @@ describe('authSchemas', () => {
     it('should reject missing email', async () => {
       const invalidData = {
         password: 'password123',
+        password_confirmation: 'password123',
+        first_name: 'John',
+        last_name: 'Doe',
         rememberMe: false,
       };
 
@@ -44,6 +53,9 @@ describe('authSchemas', () => {
       const invalidData = {
         email: 'test@example.com',
         password: '12345',
+        password_confirmation: '12345',
+        first_name: 'John',
+        last_name: 'Doe',
         rememberMe: false,
       };
 
@@ -53,16 +65,97 @@ describe('authSchemas', () => {
     it('should reject missing password', async () => {
       const invalidData = {
         email: 'test@example.com',
+        password_confirmation: 'password123',
+        first_name: 'John',
+        last_name: 'Doe',
         rememberMe: false,
       };
 
       await expect(signUpSchema.validate(invalidData)).rejects.toThrow();
     });
 
+    it('should reject missing first_name', async () => {
+      const invalidData = {
+        email: 'test@example.com',
+        password: 'password123',
+        password_confirmation: 'password123',
+        last_name: 'Doe',
+        rememberMe: false,
+      };
+
+      await expect(signUpSchema.validate(invalidData)).rejects.toThrow();
+    });
+
+    it('should reject first_name shorter than 2 characters', async () => {
+      const invalidData = {
+        email: 'test@example.com',
+        password: 'password123',
+        password_confirmation: 'password123',
+        first_name: 'J',
+        last_name: 'Doe',
+        rememberMe: false,
+      };
+
+      await expect(signUpSchema.validate(invalidData)).rejects.toThrow();
+    });
+
+    it('should reject missing last_name', async () => {
+      const invalidData = {
+        email: 'test@example.com',
+        password: 'password123',
+        password_confirmation: 'password123',
+        first_name: 'John',
+        rememberMe: false,
+      };
+
+      await expect(signUpSchema.validate(invalidData)).rejects.toThrow();
+    });
+
+    it('should reject last_name shorter than 2 characters', async () => {
+      const invalidData = {
+        email: 'test@example.com',
+        password: 'password123',
+        password_confirmation: 'password123',
+        first_name: 'John',
+        last_name: 'D',
+        rememberMe: false,
+      };
+
+      await expect(signUpSchema.validate(invalidData)).rejects.toThrow();
+    });
+
+    it('should reject missing password_confirmation', async () => {
+      const invalidData = {
+        email: 'test@example.com',
+        password: 'password123',
+        first_name: 'John',
+        last_name: 'Doe',
+        rememberMe: false,
+      };
+
+      await expect(signUpSchema.validate(invalidData)).rejects.toThrow();
+    });
+
+    it('should reject non-matching passwords', async () => {
+      const invalidData = {
+        email: 'test@example.com',
+        password: 'password123',
+        password_confirmation: 'different123',
+        first_name: 'John',
+        last_name: 'Doe',
+        rememberMe: false,
+      };
+
+      await expect(signUpSchema.validate(invalidData)).rejects.toThrow('Passwords must match');
+    });
+
     it('should allow optional rememberMe', async () => {
       const validData = {
         email: 'test@example.com',
         password: 'password123',
+        password_confirmation: 'password123',
+        first_name: 'John',
+        last_name: 'Doe',
       };
 
       await expect(signUpSchema.validate(validData)).resolves.toBeDefined();

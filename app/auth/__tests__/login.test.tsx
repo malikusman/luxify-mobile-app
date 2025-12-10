@@ -24,6 +24,7 @@ describe('Login Screen', () => {
     jest.clearAllMocks();
     require('expo-router').useRouter.mockReturnValue({
       push: mockRouterPush,
+      replace: jest.fn(),
     });
   });
 
@@ -52,6 +53,12 @@ describe('Login Screen', () => {
   });
 
   it('should navigate to home when Google button is pressed', () => {
+    const mockRouterReplace = jest.fn();
+    require('expo-router').useRouter.mockReturnValue({
+      push: mockRouterPush,
+      replace: mockRouterReplace,
+    });
+
     const store = createMockStore();
     const { getByText } = render(
       <Provider store={store}>
@@ -62,7 +69,7 @@ describe('Login Screen', () => {
     const googleButton = getByText('Continue with Google');
     fireEvent.press(googleButton);
 
-    expect(mockRouterPush).toHaveBeenCalledWith('/home/(tabs)');
+    expect(mockRouterReplace).toHaveBeenCalledWith('/home/(tabs)');
   });
 
   it('should navigate to signup when sign up link is pressed', () => {

@@ -6,11 +6,12 @@ import themeReducer from './slices/themeSlice';
 import onboardingReducer from './slices/onboardingSlice';
 import closetReducer from './slices/closetSlice';
 import orderReducer from './slices/orderSlice';
+import authReducer from './slices/authSlice';
 
 const persistConfig = {
     key: 'root',
     storage: AsyncStorage,
-    whitelist: ['theme', 'closet'],
+    whitelist: ['theme', 'closet', 'auth'],
 };
 
 const rootReducer = combineReducers({
@@ -18,6 +19,7 @@ const rootReducer = combineReducers({
     onboarding: onboardingReducer,
     closet: closetReducer,
     order: orderReducer,
+    auth: authReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
@@ -27,7 +29,7 @@ export const store = configureStore({
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({
             serializableCheck: {
-                ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
+                ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE', 'persist/PURGE'],
             },
         }),
 });

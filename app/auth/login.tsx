@@ -32,7 +32,7 @@ export default function Login() {
                 textColor={colors.text}
                 borderColor={colors.googleBorder}
                 icon={<GoogleIcon size={scaleFontSize(20)} />}
-                onPress={() => router.push('/home/(tabs)')}
+                onPress={() => router.replace('/home/(tabs)')}
             />
 
             <CustomButton
@@ -64,6 +64,7 @@ export default function Login() {
                 backgroundColor={colors.buttonPrimary}
                 textColor={colors.buttonText}
                 borderColor={colors.buttonPrimary}
+                onPress={() => router.push('/auth/LoginWIthEmail')}
             />
 
             <View style={styles.signupContainer}>

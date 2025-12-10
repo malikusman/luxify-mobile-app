@@ -6,7 +6,7 @@ import { Formik } from 'formik';
 import { scaleFontSize } from '@/src/utils/FontSizeUtil';
 import { useThemeColors } from '@/src/theme/Colors';
 import { translations } from '@/src/constants/translations';
-import { signUpSchema } from '@/src/validation/authSchemas';
+import { signInSchema } from '@/src/validation/authSchemas';
 import { FONTS } from '@/src/constants/fonts';
 import CustomButton from '@/src/components/common/CustomButton';
 import CustomInput from '@/src/components/common/CustomInput';
@@ -15,51 +15,37 @@ import BackButton from '@/src/components/common/BackButton';
 import SocialLoginButton from '@/src/components/common/SocialLoginButton';
 import Logo from '@/src/components/common/Logo';
 import GoogleIcon from '@/src/components/icons/GoogleIcon';
-import { useSignUp } from '@/src/services/modules/auth/authHooks';
+import { useSignIn } from '@/src/services/modules/auth/authHooks';
 import { useToast } from '@/src/context/ToastContext';
 import { getErrorMessage } from '@/src/utils/errorHandler';
 
-export default function SignUp() {
+export default function LoginWithEmail() {
     const router = useRouter();
     const colors = useThemeColors();
     const t = translations.auth;
     const { showError } = useToast();
 
     const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const passwordInputRef = useRef<TextInput>(null);
-    const confirmPasswordInputRef = useRef<TextInput>(null);
-    const firstNameInputRef = useRef<TextInput>(null);
-    const lastNameInputRef = useRef<TextInput>(null);
 
-    const signUpMutation = useSignUp();
+    const signInMutation = useSignIn();
 
-    const handleSignUp = async (values: { 
-        email: string; 
-        password: string; 
-        password_confirmation: string;
-        first_name: string;
-        last_name: string;
-        rememberMe: boolean;
-    }) => {
+    const handleSignIn = async (values: { email: string; password: string; rememberMe: boolean }) => {
         try {
-            await signUpMutation.mutateAsync({
+            await signInMutation.mutateAsync({
                 email: values.email,
                 password: values.password,
-                password_confirmation: values.password_confirmation,
-                first_name: values.first_name,
-                last_name: values.last_name,
             });
             router.replace('/home/(tabs)');
         } catch (error: any) {
             const errorMessage = getErrorMessage(error);
-            showError(errorMessage || 'An error occurred during sign up. Please try again.');
+            showError(errorMessage || 'An error occurred during sign in. Please try again.');
         }
     };
 
-    const handleSignIn = () => {
-        router.push('/auth/login');
+    const handleSignUp = () => {
+        router.push('/auth/Signup');
     };
 
     return (
@@ -73,16 +59,9 @@ export default function SignUp() {
             </View>
 
             <Formik
-                initialValues={{ 
-                    email: '', 
-                    password: '', 
-                    password_confirmation: '',
-                    first_name: '',
-                    last_name: '',
-                    rememberMe: false 
-                }}
-                validationSchema={signUpSchema}
-                onSubmit={handleSignUp}
+                initialValues={{ email: '', password: '', rememberMe: false }}
+                validationSchema={signInSchema}
+                onSubmit={handleSignIn}
             >
                 {({ handleChange, handleBlur, handleSubmit, values, errors, touched, setFieldValue }) => (
                     <ScrollView
@@ -97,56 +76,8 @@ export default function SignUp() {
                             </View>
 
                             <Text style={[styles.titleText, { color: colors.text }]}>
-                                {t.createAccount}
+                                {t.signIn}
                             </Text>
-
-                            <CustomInput
-                                ref={firstNameInputRef}
-                                placeholder={translations.onboarding.firstNamePlaceholder}
-                                value={values.first_name}
-                                onChangeText={handleChange('first_name')}
-                                onBlur={handleBlur('first_name')}
-                                autoCapitalize="words"
-                                autoCorrect={false}
-                                returnKeyType="next"
-                                onSubmitEditing={() => lastNameInputRef.current?.focus()}
-                                icon={
-                                    <Ionicons
-                                        name="person-outline"
-                                        size={scaleFontSize(20)}
-                                        color={values.first_name ? colors.text : colors.textSecondary}
-                                    />
-                                }
-                            />
-                            {touched.first_name && errors.first_name && (
-                                <Text style={[styles.errorText, { color: colors.error }]}>
-                                    {errors.first_name}
-                                </Text>
-                            )}
-
-                            <CustomInput
-                                ref={lastNameInputRef}
-                                placeholder={translations.onboarding.lastNamePlaceholder}
-                                value={values.last_name}
-                                onChangeText={handleChange('last_name')}
-                                onBlur={handleBlur('last_name')}
-                                autoCapitalize="words"
-                                autoCorrect={false}
-                                returnKeyType="next"
-                                onSubmitEditing={() => passwordInputRef.current?.focus()}
-                                icon={
-                                    <Ionicons
-                                        name="person-outline"
-                                        size={scaleFontSize(20)}
-                                        color={values.last_name ? colors.text : colors.textSecondary}
-                                    />
-                                }
-                            />
-                            {touched.last_name && errors.last_name && (
-                                <Text style={[styles.errorText, { color: colors.error }]}>
-                                    {errors.last_name}
-                                </Text>
-                            )}
 
                             <CustomInput
                                 placeholder={t.emailPlaceholder}
@@ -181,8 +112,8 @@ export default function SignUp() {
                                 secureTextEntry={!showPassword}
                                 autoCapitalize="none"
                                 autoCorrect={false}
-                                returnKeyType="next"
-                                onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
+                                returnKeyType="done"
+                                onSubmitEditing={() => handleSubmit()}
                                 icon={
                                     <Ionicons
                                         name="lock-closed-outline"
@@ -205,39 +136,6 @@ export default function SignUp() {
                                 </Text>
                             )}
 
-                            <CustomInput
-                                ref={confirmPasswordInputRef}
-                                placeholder="Confirm password"
-                                value={values.password_confirmation}
-                                onChangeText={handleChange('password_confirmation')}
-                                onBlur={handleBlur('password_confirmation')}
-                                secureTextEntry={!showConfirmPassword}
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                                returnKeyType="done"
-                                onSubmitEditing={() => handleSubmit()}
-                                icon={
-                                    <Ionicons
-                                        name="lock-closed-outline"
-                                        size={scaleFontSize(20)}
-                                        color={values.password_confirmation ? colors.text : colors.textSecondary}
-                                    />
-                                }
-                                rightIcon={
-                                    <Ionicons
-                                        name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
-                                        size={scaleFontSize(20)}
-                                        color={colors.textSecondary}
-                                    />
-                                }
-                                onRightIconPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                            />
-                            {touched.password_confirmation && errors.password_confirmation && (
-                                <Text style={[styles.errorText, { color: colors.error }]}>
-                                    {errors.password_confirmation}
-                                </Text>
-                            )}
-
                             <View style={styles.checkboxContainer}>
                                 <CustomCheckbox
                                     label={t.rememberMe}
@@ -248,14 +146,14 @@ export default function SignUp() {
 
                             <View style={styles.signUpButtonContainer}>
                                 <CustomButton
-                                    title={signUpMutation.isPending ? 'Signing up...' : t.signUp}
+                                    title={signInMutation.isPending ? 'Signing in...' : t.signIn}
                                     backgroundColor={colors.buttonPrimary}
                                     textColor={colors.buttonText}
                                     borderColor={colors.buttonPrimary}
                                     onPress={() => handleSubmit()}
-                                    disabled={signUpMutation.isPending}
+                                    disabled={signInMutation.isPending}
                                 />
-                                {signUpMutation.isPending && (
+                                {signInMutation.isPending && (
                                     <ActivityIndicator 
                                         size="small" 
                                         color={colors.buttonText} 
@@ -300,11 +198,11 @@ export default function SignUp() {
 
                             <View style={styles.signInContainer}>
                                 <Text style={[styles.signInText, { color: colors.textSecondary }]}>
-                                    {t.alreadyHaveAccount}
+                                    {t.dontHaveAccount}
                                 </Text>
-                                <TouchableOpacity onPress={handleSignIn} activeOpacity={0.7}>
+                                <TouchableOpacity onPress={handleSignUp} activeOpacity={0.7}>
                                     <Text style={[styles.signInLink, { color: colors.text }]}>
-                                        {t.signIn}
+                                        {t.signUp}
                                     </Text>
                                 </TouchableOpacity>
                             </View>
