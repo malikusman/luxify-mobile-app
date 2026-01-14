@@ -18,9 +18,9 @@ import ProgressBar from '@/src/components/onboarding/ProgressBar';
 import CustomButton from '@/src/components/common/CustomButton';
 import BackButton from '@/src/components/common/BackButton';
 import UserProfile, { UserProfileRef } from './components/UserProfile';
-import Step2, { Step2Ref } from './components/Step2';
-import Step3, { Step3Ref } from './components/Step3';
-import Step4, { Step4Ref } from './components/Step4';
+import SelectEmail, { SelectEmailRef } from './components/SelectEmail';
+import SelectOccupation, { SelectOccupationRef } from './components/SelectOccupation';
+import SelectBrand, { SelectBrandRef } from './components/SelectBrand';
 import SelectGender, { SelectGenderRef } from './components/SelectGender';
 import SelectOccasion, { SelectOccasionRef } from './components/SelectOccasion';
 import ChooseStylistStep2 from './components/ChooseStylistStep2';
@@ -77,9 +77,9 @@ export default function OnboardingFlow() {
     };
 
     const userProfileFormRef = useRef<UserProfileRef>(null);
-    const step2FormRef = useRef<Step2Ref>(null);
-    const step3FormRef = useRef<Step3Ref>(null);
-    const step4FormRef = useRef<Step4Ref>(null);
+    const step2FormRef = useRef<SelectEmailRef>(null);
+    const step3FormRef = useRef<SelectOccupationRef>(null);
+    const step4FormRef = useRef<SelectBrandRef>(null);
     const selectGenderRef = useRef<SelectGenderRef>(null);
     const selectOccasionRef = useRef<SelectOccasionRef>(null);
     
@@ -91,6 +91,43 @@ export default function OnboardingFlow() {
         selectedCount: currentStep === 7 ? (data.selectedBrands?.length || 0) : 0,
         hasMinimum: currentStep === 7 ? ((data.selectedBrands?.length || 0) >= LIMITS.MIN_BRANDS) : false,
     });
+    
+    // Track Step4 loading state
+    const [isStep4Loading, setIsStep4Loading] = useState(false);
+    
+    // Reset loading state when leaving step 7
+    React.useEffect(() => {
+        if (currentStep !== 7) {
+            setIsStep4Loading(false);
+        }
+    }, [currentStep]);
+
+    // Initialize profile data from user profile on mount if available
+    useEffect(() => {
+        if (userProfile && (!data.firstName || !data.lastName)) {
+            const initialData: Partial<ProfileData> = {};
+            
+            if (userProfile.first_name && !data.firstName) {
+                initialData.firstName = userProfile.first_name;
+            }
+            
+            if (userProfile.last_name && !data.lastName) {
+                initialData.lastName = userProfile.last_name;
+            }
+            
+            if (userProfile.avatar_url && !data.avatar_url) {
+                initialData.avatar_url = userProfile.avatar_url;
+            }
+            
+            if (userProfile.email && !data.email) {
+                initialData.email = userProfile.email;
+            }
+            
+            if (Object.keys(initialData).length > 0) {
+                dispatch(updateProfileData(initialData));
+            }
+        }
+    }, [userProfile]); // Run when userProfile becomes available
 
     // Initialize profile data from style profile on mount if available
     useEffect(() => {
@@ -241,6 +278,7 @@ export default function OnboardingFlow() {
         }
     };
 
+
     const handleBack = () => {
         if (currentStep > 1) {
             dispatch(previousStep());
@@ -279,7 +317,7 @@ export default function OnboardingFlow() {
                 );
             case 2:
                 return (
-                    <Step2
+                    <SelectEmail
                         ref={step2FormRef}
                         initialValues={{ email: data.email }}
                         onSubmit={(values) => handleStepSubmit(values)}
@@ -303,7 +341,7 @@ export default function OnboardingFlow() {
                 );
             case 5:
                 return (
-                    <Step3
+                    <SelectOccupation
                         ref={step3FormRef}
                         initialValues={{ occupation: getInitialOccupation() }}
                         onSubmit={(values) => handleStepSubmit(values)}
@@ -319,12 +357,15 @@ export default function OnboardingFlow() {
                 );
             case 7:
                 return (
-                    <Step4
+                    <SelectBrand
                         ref={step4FormRef}
                         initialValues={{ selectedBrands: getInitialSelectedBrands() }}
                         onSubmit={(values) => handleStepSubmit(values)}
                         onBrandSelectionChange={(count, hasMinimum) => {
                             setBrandSelectionState({ selectedCount: count, hasMinimum });
+                        }}
+                        onLoadingChange={(isLoading) => {
+                            setIsStep4Loading(isLoading);
                         }}
                     />
                 );
@@ -370,6 +411,7 @@ export default function OnboardingFlow() {
                         borderColor={colors.buttonPrimary}
                         onPress={handleNext}
                         disabled={false}
+                        loading={currentStep === 7 && isStep4Loading}
                     />
                 </View>
             </View>

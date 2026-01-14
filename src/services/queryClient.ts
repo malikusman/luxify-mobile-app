@@ -33,6 +33,17 @@ export const queryClient = new QueryClient({
                     return;
                 }
                 
+                // Skip showing toast for email verification errors - they are handled in the component
+                const isEmailVerificationError = 
+                    statusCode === 422 && 
+                    message.toLowerCase().includes('confirm your email');
+                
+                if (isEmailVerificationError) {
+                    // Don't show toast - let the component handle the redirect
+                    console.warn('Email verification required:', apiError);
+                    return;
+                }
+                
                 // Show toast for user-facing errors
                 if (statusCode && statusCode >= 500) {
                     // Server errors - show toast
@@ -62,9 +73,40 @@ export const queryKeys = {
         list: () => [...queryKeys.brands.all, 'list'] as const,
         search: (query: string) => [...queryKeys.brands.all, 'search', query] as const,
     },
+    favoriteBrands: {
+        all: ['favoriteBrands'] as const,
+        list: () => [...queryKeys.favoriteBrands.all, 'list'] as const,
+    },
     styleProfile: {
         all: ['styleProfile'] as const,
         get: () => [...queryKeys.styleProfile.all, 'get'] as const,
+    },
+    stylists: {
+        all: ['stylists'] as const,
+        list: () => [...queryKeys.stylists.all, 'list'] as const,
+        detail: (id: string) => [...queryKeys.stylists.all, 'detail', id] as const,
+        myStylist: () => [...queryKeys.stylists.all, 'myStylist'] as const,
+    },
+    conversations: {
+        all: ['conversations'] as const,
+        list: () => [...queryKeys.conversations.all, 'list'] as const,
+        detail: (id: string) => [...queryKeys.conversations.all, 'detail', id] as const,
+        messages: (conversationId: string) => [...queryKeys.conversations.all, 'messages', conversationId] as const,
+    },
+    stylePhotos: {
+        all: ['stylePhotos'] as const,
+        list: () => [...queryKeys.stylePhotos.all, 'list'] as const,
+        detail: (id: string) => [...queryKeys.stylePhotos.all, 'detail', id] as const,
+    },
+    wardrobeItems: {
+        all: ['wardrobeItems'] as const,
+        list: () => [...queryKeys.wardrobeItems.all, 'list'] as const,
+        detail: (id: string) => [...queryKeys.wardrobeItems.all, 'detail', id] as const,
+    },
+    options: {
+        all: ['options'] as const,
+        occasions: () => [...queryKeys.options.all, 'occasions'] as const,
+        occupations: () => [...queryKeys.options.all, 'occupations'] as const,
     },
 } as const;
 

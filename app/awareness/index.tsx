@@ -15,9 +15,11 @@ export default function AwarenessIndex() {
         preloadAwarenessImages();
         
         // if (hasSeenAwareness || isAuthenticated) {
-        //     router.replace('/auth/login');
+        //     router.dismissAll();
+                        router.replace('/auth/login');
         // } else {
-            router.replace('/awareness/intro');
+            router.dismissAll();
+                        router.replace('/awareness/intro');
         // }
     }, [hasSeenAwareness, isAuthenticated]);
 

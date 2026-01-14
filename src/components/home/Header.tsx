@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -16,7 +16,12 @@ import { showLogoutDialog } from '@/src/components/common/ConfirmationDialog';
 import { updateProfileData, resetProfile } from '@/src/context/slices/profileSlice';
 import { useUserProfileSelector } from '@/src/services';
 
-export default function Header() {
+interface HeaderProps {
+    centerContent?: ReactNode;
+    rightContent?: ReactNode;
+}
+
+export default function Header({ centerContent, rightContent }: HeaderProps = {}) {
     const colors = useThemeColors();
     const router = useRouter();
     const dispatch = useDispatch();
@@ -66,7 +71,8 @@ export default function Header() {
                     console.warn('Error purging persisted state:', purgeError);
                 }
                 // Navigate to login
-                router.replace('/auth/login');
+                router.dismissAll();
+                        router.replace('/auth/login');
             }
         });
     };
@@ -93,21 +99,29 @@ export default function Header() {
                     </TouchableOpacity>
                 </View>
                 <View style={styles.headerCenter}>
-                    <View style={[styles.calendarIconContainer, { backgroundColor: colors.text }]}>
-                        <CalendarIcon size={scaleFontSize(18)} color={colors.background} />
-                    </View>
-                    <Text style={[styles.eventsText, { color: colors.text }]}>Events</Text>
+                    {centerContent || (
+                        <>
+                            <View style={[styles.calendarIconContainer, { backgroundColor: colors.text }]}>
+                                <CalendarIcon size={scaleFontSize(18)} color={colors.background} />
+                            </View>
+                            <Text style={[styles.eventsText, { color: colors.text }]}>Events</Text>
+                        </>
+                    )}
                 </View>
                 <View style={styles.headerRight}>
-                    <TouchableOpacity>
-                        <HelpCircleIcon size={scaleFontSize(20)} color={colors.text} />
-                    </TouchableOpacity>
-                    <TouchableOpacity>
-                        <BellIcon size={scaleFontSize(20)} color={colors.text} />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={handleLogout}>
-                        <Ionicons name="log-out-outline" size={scaleFontSize(20)} color={colors.text} />
-                    </TouchableOpacity>
+                    {rightContent || (
+                        <>
+                            <TouchableOpacity>
+                                <HelpCircleIcon size={scaleFontSize(20)} color={colors.text} />
+                            </TouchableOpacity>
+                            <TouchableOpacity>
+                                <BellIcon size={scaleFontSize(20)} color={colors.text} />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={handleLogout}>
+                                <Ionicons name="log-out-outline" size={scaleFontSize(20)} color={colors.text} />
+                            </TouchableOpacity>
+                        </>
+                    )}
                 </View>
             </View>
         </View>

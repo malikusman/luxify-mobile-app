@@ -7,7 +7,8 @@ export default function OutfitsScreen() {
 
     useEffect(() => {
         // Navigate to AI Chat screen when this tab is accessed
-        router.replace('/home/AIChat' as any);
+        router.dismissAll();
+                        router.replace('/home/AIChat' as any);
     }, []);
 
     return <View />;

@@ -22,6 +22,21 @@ export class InterceptorManager {
                     config.headers.Authorization = `Bearer ${accessToken}`;
                 }
 
+                const isFormData = config.data instanceof FormData;
+                if (isFormData) {
+                    if (!config.headers) {
+                        config.headers = {} as any;
+                    }
+                    
+                    delete config.headers['Content-Type'];
+                    delete config.headers['content-type'];
+                    
+                    if (!config.headers['Accept']) {
+                        config.headers['Accept'] = 'application/json';
+                    }
+                }
+
+
                 return config;
             },
             (error: any) => {
@@ -38,13 +53,11 @@ export class InterceptorManager {
                 if (responseData && typeof responseData === 'object' && 'success' in responseData) {
                     if (responseData.success === false) {
                         const errorResponse = responseData as ApiErrorResponse;
-                        // Convert errors to array format if it's an object
                         let errorsArray: string[] = [];
                         if (errorResponse.errors) {
                             if (Array.isArray(errorResponse.errors)) {
                                 errorsArray = errorResponse.errors;
                             } else if (typeof errorResponse.errors === 'object') {
-                                // Handle empty object {} or object with field errors
                                 const entries = Object.entries(errorResponse.errors);
                                 if (entries.length > 0) {
                                     errorsArray = entries.flatMap(([field, messages]) => {
@@ -54,7 +67,6 @@ export class InterceptorManager {
                                         return [`${field}: ${messages}`];
                                     });
                                 }
-                                // If errors is empty {}, errorsArray stays empty
                             }
                         }
                         const error = new ApiException(
@@ -65,7 +77,12 @@ export class InterceptorManager {
                         return Promise.reject(error);
                     }
                     
-                    response.data = responseData.data;
+                    if ('data' in responseData && responseData.data !== undefined && responseData.data !== null) {
+                        response.data = responseData.data;
+                    } else {
+                        const { success, message, ...rest } = responseData;
+                        response.data = rest;
+                    }
                 }
                 
                 return response;
@@ -75,10 +92,27 @@ export class InterceptorManager {
                     _retry?: boolean;
                 };
 
+                // List of public endpoints that don't require authentication
+                // These endpoints should not trigger token refresh on 401 errors
+                const publicEndpoints = [
+                    API_ENDPOINTS.AUTH.SIGN_IN,
+                    API_ENDPOINTS.AUTH.SIGN_UP,
+                    API_ENDPOINTS.AUTH.FORGOT_PASSWORD,
+                    API_ENDPOINTS.AUTH.VERIFY_RESET_CODE,
+                    API_ENDPOINTS.AUTH.VERIFY_EMAIL,
+                    API_ENDPOINTS.AUTH.RESET_PASSWORD,
+                    API_ENDPOINTS.AUTH.REFRESH_TOKEN,
+                ];
+
+                // Check if the request URL is a public endpoint
+                const isPublicEndpoint = publicEndpoints.some(endpoint => 
+                    originalRequest.url?.includes(endpoint)
+                );
+
                 if (
                     error.response?.status === HTTP_STATUS.UNAUTHORIZED &&
                     !originalRequest._retry &&
-                    originalRequest.url !== API_ENDPOINTS.AUTH.REFRESH_TOKEN
+                    !isPublicEndpoint
                 ) {
                     if (this.isRefreshing) {
                         return new Promise((resolve, reject) => {
@@ -118,15 +152,12 @@ export class InterceptorManager {
 
                 const apiError = handleApiError(error);
                 
-                // Extract detailed error information from response
                 let errorMessage = apiError.message;
                 let errorDetails: string[] = apiError.errors || [];
                 
-                // If response has error data, extract it
                 if (error.response?.data) {
                     const responseData = error.response.data;
                     
-                    // Handle nested error structures
                     if (responseData.data && responseData.data.message) {
                         errorMessage = responseData.data.message;
                         if (responseData.data.errors) {

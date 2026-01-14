@@ -84,31 +84,14 @@ export default function HomeScreen() {
                             <Logo size={scaleFontSize(120)} />
                         </View>
                         <Text style={[styles.welcomeText, { color: colors.text }]}>
-                            {t.welcomeMessage}
+                            {userProfile?.first_name 
+                                ? `${t.welcome || 'Welcome'}, ${userProfile.first_name}`
+                                : t.welcomeMessage
+                            }
                         </Text>
                         <Text style={[styles.instructionText, { color: colors.textSecondary }]}>
                             {t.instructionText}
                         </Text>
-
-                        <View style={[styles.closetCard, { backgroundColor: colors.text }]}>
-                            <View style={styles.closetHeader}>
-                                <Text style={[styles.closetTitle, { color: colors.textSecondary }]}>
-                                    {t.closet}
-                                </Text>
-                                <Text style={[styles.closetCount, { color: colors.surface }]}>
-                                    {images.length}/{maxImages}
-                                </Text>
-                            </View>
-                            <TouchableOpacity
-                                style={[styles.addButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
-                                activeOpacity={0.7}
-                                onPress={handleAddToCloset}
-                            >
-                                <Text style={[styles.addButtonText, { color: colors.text }]}>
-                                    {images.length >= maxImages ? t.trackYourCloset : t.addToCloset}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
 
                         <View style={styles.helpSection}>
                             <Text style={[styles.helpText, { color: colors.textSecondary }]}>

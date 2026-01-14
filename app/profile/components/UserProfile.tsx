@@ -1,6 +1,8 @@
 import React, { forwardRef, useImperativeHandle, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
 import { Formik, FormikProps } from 'formik';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { scaleFontSize } from '@/src/utils/FontSizeUtil';
 import { useThemeColors } from '@/src/theme/Colors';
 import { translations } from '@/src/constants/translations';
@@ -12,6 +14,7 @@ import { pickImageFromGallery, takePhotoWithCamera, showImageSourceDialog } from
 import { useUpdateUser, useUserProfileSelector } from '@/src/services';
 import { toastErrorFromException } from '@/src/utils/toast';
 import { IMAGE_QUALITY } from '@/src/constants/constants';
+import { isLocalFile } from '@/src/utils/imageUtils';
 
 interface UserProfileProps {
     initialValues: { firstName: string; lastName: string; avatar_url?: string | null };
@@ -24,6 +27,7 @@ export interface UserProfileRef {
 
 const UserProfile = forwardRef<UserProfileRef, UserProfileProps>(({ initialValues, onSubmit }, ref) => {
     const colors = useThemeColors();
+    const router = useRouter();
     const t = translations.onboarding;
     const updateUserMutation = useUpdateUser();
     const userProfile = useUserProfileSelector();
@@ -57,7 +61,30 @@ const UserProfile = forwardRef<UserProfileRef, UserProfileProps>(({ initialValue
                         updateData.last_name = formik.values.lastName;
                     }
                     if (avatarUri !== (initialValues.avatar_url || null)) {
-                        updateData.avatar_url = avatarUri;
+                        if (avatarUri === null) {
+                            updateData.avatar_url = null;
+                        } else if (isLocalFile(avatarUri)) {
+                            const filename = avatarUri.split('/').pop() || 'image.jpg';
+                            const match = /\.(\w+)$/.exec(filename);
+                            let type = 'image/jpeg';
+                            if (match) {
+                                const ext = match[1].toLowerCase();
+                                if (ext === 'png') type = 'image/png';
+                                else if (ext === 'jpg' || ext === 'jpeg') type = 'image/jpeg';
+                                else if (ext === 'gif') type = 'image/gif';
+                                else if (ext === 'webp') type = 'image/webp';
+                            }
+                            
+                            const fileUri = avatarUri.startsWith('file://') ? avatarUri : `file://${avatarUri}`;
+                            
+                            updateData.avatar_url = {
+                                uri: fileUri,
+                                type: type,
+                                name: filename,
+                            };
+                        } else {
+                            updateData.avatar_url = avatarUri;
+                        }
                     }
 
                     if (Object.keys(updateData).length > 0) {
@@ -82,6 +109,8 @@ const UserProfile = forwardRef<UserProfileRef, UserProfileProps>(({ initialValue
 
             if (result.success && result.uri) {
                 setAvatarUri(result.uri);
+                // Navigate to premium page after selecting avatar
+                router.push('/premium/Subscription' as any);
             }
         };
 
@@ -92,6 +121,8 @@ const UserProfile = forwardRef<UserProfileRef, UserProfileProps>(({ initialValue
 
             if (result.success && result.uri) {
                 setAvatarUri(result.uri);
+                // Navigate to premium page after selecting avatar
+                router.push('/premium/Subscription' as any);
             }
         };
 
@@ -113,6 +144,7 @@ const UserProfile = forwardRef<UserProfileRef, UserProfileProps>(({ initialValue
             initialValues={initialValues}
             validationSchema={step1Schema}
             onSubmit={onSubmit}
+            enableReinitialize={true}
         >
             {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
                 <View style={styles.container}>

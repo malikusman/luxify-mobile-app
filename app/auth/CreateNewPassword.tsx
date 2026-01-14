@@ -19,12 +19,14 @@ import { styles } from './styles/createNewPasswordStyles';
 
 export default function CreateNewPassword() {
     const router = useRouter();
-    const params = useLocalSearchParams<{ email?: string; reset_password_token?: string }>();
+    const params = useLocalSearchParams<{ email?: string; code?: string; reset_password_token?: string }>();
     const colors = useThemeColors();
     const t = translations.auth;
     const insets = useSafeAreaInsets();
     const resetPasswordMutation = useResetPassword();
 
+    const email = params.email || '';
+    const code = params.code || '';
     const resetPasswordToken = params.reset_password_token || '';
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -47,17 +49,24 @@ export default function CreateNewPassword() {
     }, [showSuccessModal, slideAnim]);
 
     const handleSubmit = async (values: { password: string; confirmPassword: string }) => {
-        if (!resetPasswordToken) {
-            toastErrorFromException(new Error('Reset token is missing'));
+        if (!email) {
+            toastErrorFromException(new Error('Email is required'));
+            return;
+        }
+
+        if (!code) {
+            toastErrorFromException(new Error('Verification code is required'));
             return;
         }
 
         try {
             setIsSubmitting(true);
             await resetPasswordMutation.mutateAsync({
-                reset_password_token: resetPasswordToken,
+                email,
+                code,
                 password: values.password,
                 password_confirmation: values.confirmPassword,
+                ...(resetPasswordToken && { reset_password_token: resetPasswordToken }),
             });
             toastSuccess(t.passwordChanged || 'Password changed successfully');
             setShowSuccessModal(true);
@@ -75,7 +84,9 @@ export default function CreateNewPassword() {
             useNativeDriver: true,
         }).start(() => {
             setShowSuccessModal(false);
-            router.replace('/auth/LoginWIthEmail');
+            router.dismissAll();
+            router.dismissAll();
+                        router.replace('/auth/LoginWIthEmail');
         });
     };
 

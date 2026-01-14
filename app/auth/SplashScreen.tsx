@@ -11,6 +11,7 @@ export default function SplashScreen() {
     const router = useRouter();
     const isAuthenticated = useSelector((state: RootState) => state.auth?.isAuthenticated);
     const accessToken = useSelector((state: RootState) => state.auth?.accessToken);
+    const has_style_profile = useSelector((state: RootState) => state.auth?.has_style_profile);
     const hasSeenAwareness = useSelector((state: RootState) => state.awareness?.hasSeenAwareness);
 
     useEffect(() => {
@@ -23,18 +24,25 @@ export default function SplashScreen() {
         // Check both isAuthenticated and accessToken to ensure user is logged in
         const timer = setTimeout(() => {
             if (isAuthenticated && accessToken) {
-                router.replace('/home/(tabs)');
+                // Check if user has style profile to determine redirect
+                if (has_style_profile === true) {
+                    router.dismissAll();
+                        router.replace('/home/(tabs)');
+                } else {
+                    router.dismissAll();
+                        router.replace('/profile/OnboardingFlow');
+                }
             } else if (!hasSeenAwareness) {
-                router.replace('/awareness');
+                router.dismissAll();
+                        router.replace('/awareness');
             } else {
-                // router.replace('/auth/login');
-                router.replace('/awareness');
-
+                router.dismissAll();
+                        router.replace('/auth/login');
             }
         }, 2000);
 
         return () => clearTimeout(timer);
-    }, [isAuthenticated, accessToken, hasSeenAwareness]);
+    }, [isAuthenticated, accessToken, has_style_profile, hasSeenAwareness]);
 
     return (
         <View style={styles.container}>

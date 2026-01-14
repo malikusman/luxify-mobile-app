@@ -6,13 +6,27 @@ export interface ClosetImage {
     timestamp: number;
 }
 
+export interface ClosetItem {
+    id: string;
+    imageUri: string;
+    category?: string;
+    itemName?: string;
+    size?: string;
+    color?: string;
+    brandName?: string;
+    fit?: string;
+    timestamp: number;
+}
+
 interface ClosetState {
     images: ClosetImage[];
+    items: ClosetItem[];
     maxImages: number;
 }
 
 const initialState: ClosetState = {
     images: [],
+    items: [],
     maxImages: 5,
 };
 
@@ -48,10 +62,42 @@ const closetSlice = createSlice({
         clearCloset: (state) => {
             state.images = [];
         },
+        saveItem: (state, action: PayloadAction<Omit<ClosetItem, 'id' | 'timestamp'>>) => {
+            // Ensure items array exists (for backward compatibility with persisted state)
+            if (!state.items) {
+                state.items = [];
+            }
+            const newItem: ClosetItem = {
+                id: `item_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+                timestamp: Date.now(),
+                ...action.payload,
+            };
+            state.items.push(newItem);
+            // Also add to images if not already there
+            if (!state.images.find(img => img.uri === newItem.imageUri)) {
+                const newImage: ClosetImage = {
+                    id: `img_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+                    uri: newItem.imageUri,
+                    timestamp: Date.now(),
+                };
+                if (state.images.length < state.maxImages) {
+                    state.images.push(newImage);
+                }
+            }
+        },
+        removeItem: (state, action: PayloadAction<string>) => {
+            state.items = state.items.filter((item) => item.id !== action.payload);
+        },
+        updateItem: (state, action: PayloadAction<ClosetItem>) => {
+            const index = state.items.findIndex((item) => item.id === action.payload.id);
+            if (index !== -1) {
+                state.items[index] = action.payload;
+            }
+        },
     },
 });
 
-export const { addImage, addMultipleImages, removeImage, clearCloset } = closetSlice.actions;
+export const { addImage, addMultipleImages, removeImage, clearCloset, saveItem, removeItem, updateItem } = closetSlice.actions;
 
 export default closetSlice.reducer;
 

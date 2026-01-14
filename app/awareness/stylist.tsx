@@ -32,7 +32,8 @@ export default function StylistScreen() {
 
     const handleSkip = () => {
         dispatch(setAwarenessSeen());
-        router.replace('/auth/login');
+        router.dismissAll();
+                        router.replace('/auth/login');
     };
 
     const handleNext = () => {

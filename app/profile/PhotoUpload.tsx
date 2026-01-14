@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Image, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Image, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { scaleFontSize } from '@/src/utils/FontSizeUtil';
@@ -9,134 +9,176 @@ import { FONTS } from '@/src/constants/fonts';
 import CustomButton from '@/src/components/common/CustomButton';
 import BackButton from '@/src/components/common/BackButton';
 import {
-    pickMultipleImagesFromGallery,
     takePhotoWithCamera,
     pickImageFromGallery,
-    showImageSourceDialog,
 } from '@/src/services/imagePickerService';
 import { LIMITS, IMAGE_QUALITY } from '@/src/constants/constants';
+import { 
+    useStylePhotos, 
+    useUploadStylePhoto, 
+    useDeleteStylePhoto,
+} from '@/src/services/modules/stylePhotos/stylePhotosHooks';
+import Constants from 'expo-constants';
+
+interface PhotoItem {
+    id?: string;
+    uri: string;
+    position?: number;
+    isUploaded?: boolean;
+}
 
 export default function PhotoUpload() {
     const router = useRouter();
     const colors = useThemeColors();
     const t = translations.onboarding;
     const imagePickerT = translations.imagePicker;
-    const [uploadedPhotos, setUploadedPhotos] = useState<(string | undefined)[]>(Array(LIMITS.MAX_PHOTOS).fill(undefined));
+    
+    const { data: stylePhotos = [], isLoading: isLoadingPhotos } = useStylePhotos();
+    const uploadPhotoMutation = useUploadStylePhoto();
+    const deletePhotoMutation = useDeleteStylePhoto();
+    
+    const [photo, setPhoto] = useState<PhotoItem | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    
+    useEffect(() => {
+        if (stylePhotos.length > 0) {
+            const sortedPhotos = [...stylePhotos].sort((a, b) => a.position - b.position);
+            if (sortedPhotos.length > 0) {
+                const firstPhoto = sortedPhotos[0];
+                setPhoto({
+                    id: firstPhoto.id,
+                    uri: firstPhoto.image_url,
+                    position: firstPhoto.position,
+                    isUploaded: true,
+                });
+            }
+        }
+    }, [stylePhotos]);
 
     const handleBack = () => {
         router.back();
     };
 
-    const handleUploadPhotos = async () => {
-        const emptySlots = uploadedPhotos.filter(photo => !photo).length;
-        if (emptySlots === 0) {
-            Alert.alert(t.maximumPhotos, t.maximumPhotosMessage);
-            return;
-        }
-
-        const result = await pickMultipleImagesFromGallery(emptySlots, {
+    const handleUploadPhoto = async () => {
+        const result = await pickImageFromGallery({
             quality: IMAGE_QUALITY.DEFAULT,
         });
 
-        if (result.success && result.uris) {
-            setUploadedPhotos(prev => {
-                const updated = [...prev];
-                let photoIndex = 0;
-                for (let i = 0; i < updated.length && photoIndex < result.uris!.length; i++) {
-                    if (!updated[i]) {
-                        updated[i] = result.uris![photoIndex];
-                        photoIndex++;
-                    }
+        if (result.success && result.uri) {
+            const previousPhoto = photo;
+            
+            // Delete previous photo if exists
+            if (photo && photo.id && photo.isUploaded) {
+                try {
+                    await deletePhotoMutation.mutateAsync(photo.id);
+                } catch (error) {
+                    // Continue even if delete fails
                 }
-                return updated;
+            }
+            
+            setPhoto({
+                uri: result.uri,
+                isUploaded: false,
             });
+            setIsUploading(true);
+            
+            try {
+                const uploadedPhoto = await uploadPhotoMutation.mutateAsync(result.uri);
+                setPhoto({
+                    id: uploadedPhoto.id,
+                    uri: uploadedPhoto.image_url,
+                    position: uploadedPhoto.position,
+                    isUploaded: true,
+                });
+            } catch (error) {
+                // Revert to previous photo or clear
+                if (previousPhoto && previousPhoto.id && previousPhoto.isUploaded) {
+                    setPhoto(previousPhoto);
+                } else {
+                    setPhoto(null);
+                }
+                Alert.alert(translations.common.error, 'Failed to upload photo. Please try again.');
+            } finally {
+                setIsUploading(false);
+            }
         } else if (result.error && result.error !== imagePickerT.userCanceled && result.error !== imagePickerT.permissionsNotGranted) {
             Alert.alert(translations.common.error, result.error);
         }
     };
 
     const handleTakePhoto = async () => {
-        const emptySlots = uploadedPhotos.filter(photo => !photo).length;
-        if (emptySlots === 0) {
-            Alert.alert(t.maximumPhotos, t.maximumPhotosMessage);
-            return;
-        }
-
         const result = await takePhotoWithCamera({
             quality: IMAGE_QUALITY.DEFAULT,
             allowsEditing: true,
         });
 
         if (result.success && result.uri) {
-            setUploadedPhotos(prev => {
-                const updated = [...prev];
-                const firstEmptyIndex = updated.findIndex(photo => !photo);
-                if (firstEmptyIndex !== -1) {
-                    updated[firstEmptyIndex] = result.uri!;
+            const previousPhoto = photo;
+            
+            // Delete previous photo if exists
+            if (photo && photo.id && photo.isUploaded) {
+                try {
+                    await deletePhotoMutation.mutateAsync(photo.id);
+                } catch (error) {
+                    // Continue even if delete fails
                 }
-                return updated;
+            }
+            
+            setPhoto({
+                uri: result.uri,
+                isUploaded: false,
             });
+            setIsUploading(true);
+            
+            try {
+                const uploadedPhoto = await uploadPhotoMutation.mutateAsync(result.uri);
+                setPhoto({
+                    id: uploadedPhoto.id,
+                    uri: uploadedPhoto.image_url,
+                    position: uploadedPhoto.position,
+                    isUploaded: true,
+                });
+            } catch (error) {
+                // Revert to previous photo or clear
+                if (previousPhoto && previousPhoto.id && previousPhoto.isUploaded) {
+                    setPhoto(previousPhoto);
+                } else {
+                    setPhoto(null);
+                }
+                Alert.alert(translations.common.error, 'Failed to upload photo. Please try again.');
+            } finally {
+                setIsUploading(false);
+            }
         } else if (result.error && result.error !== imagePickerT.userCanceled && result.error !== imagePickerT.permissionsNotGranted) {
             Alert.alert(translations.common.error, result.error);
         }
     };
 
-    const handlePhotoPress = (index: number) => {
-        const hasPhoto = uploadedPhotos[index];
-        const alertTitle = hasPhoto ? imagePickerT.replacePhoto : imagePickerT.addPhoto;
-
-        const onTakePhoto = async () => {
-            const result = await takePhotoWithCamera({
-                quality: IMAGE_QUALITY.DEFAULT,
-                allowsEditing: true,
-            });
-
-            if (result.success && result.uri) {
-                setUploadedPhotos(prev => {
-                    const updated = [...prev];
-                    updated[index] = result.uri!;
-                    return updated;
-                });
-            } else if (result.error && result.error !== imagePickerT.userCanceled && result.error !== imagePickerT.permissionsNotGranted) {
-                Alert.alert('Error', result.error);
-            }
-        };
-
-        const onPickFromGallery = async () => {
-            const result = await pickImageFromGallery({
-                quality: IMAGE_QUALITY.DEFAULT,
-            });
-
-            if (result.success && result.uri) {
-                setUploadedPhotos(prev => {
-                    const updated = [...prev];
-                    updated[index] = result.uri!;
-                    return updated;
-                });
-            } else if (result.error && result.error !== imagePickerT.userCanceled && result.error !== imagePickerT.permissionsNotGranted) {
-                Alert.alert('Error', result.error);
-            }
-        };
-
-        const onRemove = () => {
-            setUploadedPhotos(prev => {
-                const updated = [...prev];
-                updated[index] = undefined;
-                return updated;
-            });
-        };
-
-        showImageSourceDialog(
-            onTakePhoto,
-            onPickFromGallery,
-            hasPhoto ? onRemove : undefined,
-            alertTitle
-        );
+    const handlePhotoPress = () => {
+        handleUploadPhoto();
     };
 
-    const handleNext = () => {
+    const handleNext = async () => {
+        // Upload local photo if exists
+        if (photo && photo.uri && !photo.isUploaded) {
+            try {
+                await uploadPhotoMutation.mutateAsync(photo.uri);
+            } catch (error) {
+                Alert.alert(
+                    'Upload Error',
+                    'Failed to upload photo. Please try again.'
+                );
+                return;
+            }
+        }
+        
         router.push('/profile/ChooseStylist');
     };
+    
+    const isLoading = isLoadingPhotos || 
+        uploadPhotoMutation.isPending || 
+        deletePhotoMutation.isPending ||
+        isUploading;
 
     return (
         <KeyboardAvoidingView
@@ -164,47 +206,52 @@ export default function PhotoUpload() {
                     </View>
 
                     <View style={styles.uploadSection}>
-                        <View style={styles.photoPlaceholders}>
-                            {Array.from({ length: LIMITS.MAX_PHOTOS }, (_, index) => index).map((index) => {
-                                const photoUri = uploadedPhotos[index];
-                                return (
-                                    <TouchableOpacity
-                                        key={index}
-                                        style={[
-                                            styles.photoPlaceholder,
-                                            {
-                                                borderColor: colors.border,
-                                            },
-                                        ]}
-                                        onPress={() => handlePhotoPress(index)}
-                                        activeOpacity={0.7}
-                                    >
-                                        {photoUri ? (
-                                            <Image
-                                                source={{ uri: photoUri }}
-                                                style={styles.placeholderImage}
-                                                resizeMode="cover"
-                                            />
-                                        ) : (
-                                            <Image
-                                                source={require('@/assets/placeholderImage.png')}
-                                                style={styles.placeholderImage}
-                                                resizeMode="cover"
-                                            />
-                                        )}
-                                        {photoUri && (
-                                            <View style={styles.removeButton}>
-                                                <Ionicons
-                                                    name="close-circle"
-                                                    size={scaleFontSize(24)}
-                                                    color="#FFFFFF"
-                                                />
+                        {isLoadingPhotos ? (
+                            <View style={styles.loadingContainer}>
+                                <ActivityIndicator size="large" color={colors.buttonPrimary} />
+                                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+                                    Loading photo...
+                                </Text>
+                            </View>
+                        ) : (
+                            <TouchableOpacity
+                                style={[
+                                    styles.photoPlaceholder,
+                                    {
+                                        backgroundColor: colors.surface,
+                                        borderColor: colors.border,
+                                    },
+                                ]}
+                                onPress={handlePhotoPress}
+                                activeOpacity={0.7}
+                                disabled={isLoading}
+                            >
+                                {photo && photo.uri ? (
+                                    <>
+                                        <Image
+                                            source={{ uri: Constants.expoConfig?.extra?.backendUrl + photo.uri }}
+                                            style={styles.placeholderImage}
+                                            resizeMode="cover"
+                                        />
+                                        {isUploading && (
+                                            <View style={styles.uploadingOverlay}>
+                                                <ActivityIndicator size="small" color="#FFFFFF" />
                                             </View>
                                         )}
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
+                                    </>
+                                ) : (
+                                    <View style={styles.placeholderContent}>
+                                        <View style={[styles.dashedBorder, { borderColor: colors.border }]}>
+                                            <Ionicons
+                                                name="image-outline"
+                                                size={scaleFontSize(48)}
+                                                color={colors.textSecondary}
+                                            />
+                                        </View>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        )}
 
                         <TouchableOpacity
                             style={[
@@ -212,15 +259,14 @@ export default function PhotoUpload() {
                                 {
                                     backgroundColor: colors.surface,
                                     borderColor: colors.border,
-                                    opacity: uploadedPhotos.filter(photo => photo).length >= LIMITS.MAX_PHOTOS ? 0.5 : 1,
                                 },
                             ]}
-                            onPress={handleUploadPhotos}
+                            onPress={handleUploadPhoto}
                             activeOpacity={0.7}
-                            disabled={uploadedPhotos.filter(photo => photo).length >= LIMITS.MAX_PHOTOS}
+                            disabled={isLoading}
                         >
                             <Text style={[styles.uploadButtonText, { color: colors.textSecondary }]}>
-                                {t.uploadPhotos}
+                                Upload your any photo from Gallery
                             </Text>
                             <Ionicons
                                 name="arrow-up"
@@ -241,15 +287,14 @@ export default function PhotoUpload() {
                                 {
                                     backgroundColor: colors.surface,
                                     borderColor: colors.border,
-                                    opacity: uploadedPhotos.filter(photo => photo).length >= LIMITS.MAX_PHOTOS ? 0.5 : 1,
                                 },
                             ]}
                             onPress={handleTakePhoto}
                             activeOpacity={0.7}
-                            disabled={uploadedPhotos.filter(photo => photo).length >= LIMITS.MAX_PHOTOS}
+                            disabled={isLoading}
                         >
                             <Text style={[styles.takePhotoButtonText, { color: colors.textSecondary }]}>
-                                {t.snapYourFit}
+                                Snap your fit
                             </Text>
                             <Ionicons
                                 name="camera-outline"
@@ -272,6 +317,7 @@ export default function PhotoUpload() {
                     textColor={colors.buttonText}
                     borderColor={colors.buttonPrimary}
                     onPress={handleNext}
+                    disabled={isLoading}
                 />
             </View>
         </KeyboardAvoidingView>
@@ -323,17 +369,28 @@ const styles = StyleSheet.create({
         width: '100%',
         marginBottom: scaleFontSize(24),
     },
-    photoPlaceholders: {
-        flexDirection: 'row',
-        gap: scaleFontSize(12),
+    photoPlaceholder: {
+        width: '100%',
+        aspectRatio: 1,
+        borderRadius: scaleFontSize(8),
+        borderWidth: scaleFontSize(1),
+        overflow: 'hidden',
         marginBottom: scaleFontSize(16),
     },
-    photoPlaceholder: {
-        flex: 1,
-        aspectRatio: 0.75,
+    placeholderContent: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    dashedBorder: {
+        width: '80%',
+        aspectRatio: 1,
         borderRadius: scaleFontSize(8),
         borderWidth: scaleFontSize(2),
-        overflow: 'hidden',
+        borderStyle: 'dashed',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     placeholderImage: {
         width: '100%',
@@ -393,5 +450,25 @@ const styles = StyleSheet.create({
         width: '100%',
         paddingHorizontal: scaleFontSize(24),
         paddingBottom: scaleFontSize(40),
+    },
+    loadingContainer: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: scaleFontSize(40),
+    },
+    loadingText: {
+        fontSize: scaleFontSize(16),
+        fontFamily: FONTS.nunitoRegular,
+        marginTop: scaleFontSize(16),
+    },
+    uploadingOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });

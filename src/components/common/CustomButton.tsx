@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle, View } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle, View, ActivityIndicator } from 'react-native';
 import { scaleFontSize } from '@/src/utils/FontSizeUtil';
 import { FONTS } from '@/src/constants/fonts';
 
@@ -13,6 +13,7 @@ interface CustomButtonProps {
     style?: ViewStyle;
     textStyle?: TextStyle;
     disabled?: boolean;
+    loading?: boolean;
 }
 
 export default function CustomButton({
@@ -25,7 +26,10 @@ export default function CustomButton({
     style,
     textStyle,
     disabled = false,
+    loading = false,
 }: CustomButtonProps) {
+    const isDisabled = disabled || loading;
+    
     return (
         <TouchableOpacity
             style={[
@@ -33,24 +37,30 @@ export default function CustomButton({
                 {
                     backgroundColor,
                     borderColor,
-                    opacity: disabled ? 0.5 : 1,
+                    opacity: isDisabled ? 0.5 : 1,
                 },
                 style,
             ]}
             onPress={onPress}
             activeOpacity={0.7}
-            disabled={disabled}
+            disabled={isDisabled}
         >
             {icon && <View style={styles.iconContainer}>{icon}</View>}
-            <Text
-                style={[
-                    styles.buttonText,
-                    { color: textColor },
-                    textStyle,
-                ]}
-            >
-                {title}
-            </Text>
+            {loading ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color={textColor} />
+                </View>
+            ) : (
+                <Text
+                    style={[
+                        styles.buttonText,
+                        { color: textColor },
+                        textStyle,
+                    ]}
+                >
+                    {title}
+                </Text>
+            )}
             {icon && <View style={styles.iconPlaceholder} />}
         </TouchableOpacity>
     );
@@ -81,5 +91,10 @@ const styles = StyleSheet.create({
     },
     iconPlaceholder: {
         width: 24,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });

@@ -15,6 +15,8 @@ import GoogleIcon from '@/src/components/icons/GoogleIcon';
 import { useOAuth } from '@/src/services/modules/auth/authHooks';
 import { OAuthRequest } from '@/src/services/modules/auth/authTypes';
 import { toastErrorFromException, toastSuccess } from '@/src/utils/toast';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/src/context/store';
 
 // Complete the OAuth session properly
 WebBrowser.maybeCompleteAuthSession();
@@ -24,6 +26,7 @@ export default function Login() {
     const colors = useThemeColors();
     const t = translations.auth;
     const oauthMutation = useOAuth();
+    const has_style_profile = useSelector((state: RootState) => state.auth?.has_style_profile);
     const [isLoading, setIsLoading] = useState(false);
 
     // Get OAuth client IDs from app config
@@ -69,6 +72,8 @@ export default function Login() {
     };
 
     const handleGoogleLogin = async () => {
+        let oauthData: OAuthRequest | null = null;
+        
         try {
             setIsLoading(true);
 
@@ -249,7 +254,7 @@ export default function Login() {
                     Date.now() + (tokens.expires_in || 3600) * 1000
                 ).toISOString();
 
-                const oauthData: OAuthRequest = {
+                oauthData = {
                     oauth: {
                         provider_uid: userInfo.id,
                         email: userInfo.email,
@@ -263,13 +268,26 @@ export default function Login() {
                 };
 
                 // Call OAuth API
-                await oauthMutation.mutateAsync({
+                const response = await oauthMutation.mutateAsync({
                     provider: 'google',
                     data: oauthData,
                 });
 
+                // Check has_style_profile from response or Redux state
+                const hasStyleProfile = response?.data?.has_style_profile ?? has_style_profile ?? false;
+
                 toastSuccess('Successfully signed in with Google');
-                router.replace('/home/(tabs)');
+                
+                // Small delay to ensure Redux state is updated
+                setTimeout(() => {
+                    if (hasStyleProfile === true) {
+                        router.dismissAll();
+                        router.replace('/home/(tabs)');
+                    } else {
+                        router.dismissAll();
+                        router.replace('/profile/OnboardingFlow');
+                    }
+                }, 100);
             } else if (result.type === 'error') {
                 console.error('Google OAuth error:', result.error);
                 console.error('Error code:', result.error?.code);
@@ -284,15 +302,50 @@ export default function Login() {
                 console.error('Full result:', JSON.stringify(result, null, 2));
                 throw new Error(`Unknown OAuth error occurred. Type: ${result.type}`);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Google login error:', error);
-            toastErrorFromException(error);
+            
+            // Check if this is an email verification error
+            const apiError = error?.statusCode || error?.response?.status;
+            const errorMessage = error?.message || error?.response?.data?.message || '';
+            const isEmailVerificationError = 
+                apiError === 422 && 
+                errorMessage.toLowerCase().includes('confirm your email');
+            
+            if (isEmailVerificationError && oauthData) {
+                // Extract email from OAuth data
+                const userEmail = oauthData.oauth.email;
+                if (userEmail) {
+                    // Don't show error toast - redirect to verification page
+                    router.push({
+                        pathname: '/auth/VerificationCode',
+                        params: { 
+                            email: userEmail,
+                            mode: 'email_verification'
+                        },
+                    });
+                    return;
+                }
+            }
+            
+            // Only show toast if not already shown by global handler
+            // Check if error was handled (has statusCode and message)
+            if (apiError && apiError >= 400 && apiError < 500) {
+                // Client errors are handled by global handler, but we show it here too
+                // to ensure user sees it. The toast system should prevent duplicates.
+                toastErrorFromException(error);
+            } else {
+                // Network or other errors - show toast
+                toastErrorFromException(error);
+            }
         } finally {
             setIsLoading(false);
         }
     };
 
     const handleFacebookLogin = async () => {
+        let oauthData: OAuthRequest | null = null;
+        
         try {
             setIsLoading(true);
 
@@ -347,7 +400,7 @@ export default function Login() {
                     Date.now() + (tokens.expires_in || 3600) * 1000
                 ).toISOString();
 
-                const oauthData: OAuthRequest = {
+                oauthData = {
                     oauth: {
                         provider_uid: userInfo.id,
                         email: userInfo.email || `${userInfo.id}@facebook.com`,
@@ -360,19 +413,61 @@ export default function Login() {
                 };
 
                 // Call OAuth API
-                await oauthMutation.mutateAsync({
+                const response = await oauthMutation.mutateAsync({
                     provider: 'facebook',
                     data: oauthData,
                 });
 
+                // Check has_style_profile from response or Redux state
+                const hasStyleProfile = response?.data?.has_style_profile ?? has_style_profile ?? false;
+
                 toastSuccess('Successfully signed in with Facebook');
-                router.replace('/home/(tabs)');
+                
+                // Small delay to ensure Redux state is updated
+                setTimeout(() => {
+                    if (hasStyleProfile === true) {
+                        router.dismissAll();
+                        router.replace('/home/(tabs)');
+                    } else {
+                        router.dismissAll();
+                        router.replace('/profile/OnboardingFlow');
+                    }
+                }, 100);
             } else if (result.type === 'error') {
                 throw new Error(result.error?.message || 'OAuth authentication failed');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Facebook login error:', error);
-            toastErrorFromException(error);
+            
+            // Check if this is an email verification error
+            const apiError = error?.statusCode || error?.response?.status;
+            const errorMessage = error?.message || error?.response?.data?.message || '';
+            const isEmailVerificationError = 
+                apiError === 422 && 
+                errorMessage.toLowerCase().includes('confirm your email');
+            
+            if (isEmailVerificationError && oauthData) {
+                // Extract email from OAuth data
+                const userEmail = oauthData.oauth.email;
+                if (userEmail) {
+                    // Don't show error toast - redirect to verification page
+                    router.push({
+                        pathname: '/auth/VerificationCode',
+                        params: { 
+                            email: userEmail,
+                            mode: 'email_verification'
+                        },
+                    });
+                    return;
+                }
+            }
+            
+            // Only show toast if not already shown by global handler
+            if (apiError && apiError >= 400 && apiError < 500) {
+                toastErrorFromException(error);
+            } else {
+                toastErrorFromException(error);
+            }
         } finally {
             setIsLoading(false);
         }

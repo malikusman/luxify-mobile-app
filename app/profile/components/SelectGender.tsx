@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
     checkmarkContainer: {
         position: 'absolute',
         top: scaleFontSize(12),
-        right: scaleFontSize(12),
+        left: scaleFontSize(12),
         width: scaleFontSize(32),
         height: scaleFontSize(32),
         borderRadius: scaleFontSize(16),

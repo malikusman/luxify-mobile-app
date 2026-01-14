@@ -28,12 +28,14 @@ export default function DiscoverScreen() {
 
     const handleSkip = () => {
         dispatch(setAwarenessSeen());
-        router.replace('/auth/login');
+        router.dismissAll();
+                        router.replace('/auth/login');
     };
 
     const handleNext = () => {
         dispatch(setAwarenessSeen());
-        router.replace('/auth/login');
+        router.dismissAll();
+                        router.replace('/auth/login');
     };
 
     useEffect(() => {

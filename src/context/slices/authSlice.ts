@@ -11,6 +11,7 @@ export interface AuthState {
         name?: string;
     } | null;
     userProfile: UserProfile | null;
+    has_style_profile: boolean | null;
 }
 
 const initialState: AuthState = {
@@ -19,6 +20,7 @@ const initialState: AuthState = {
     isAuthenticated: false,
     user: null,
     userProfile: null,
+    has_style_profile: null,
 };
 
 const authSlice = createSlice({
@@ -31,6 +33,7 @@ const authSlice = createSlice({
                 accessToken: string;
                 refreshToken: string | null;
                 user?: AuthState['user'];
+                has_style_profile?: boolean;
             }>
         ) => {
             state.accessToken = action.payload.accessToken;
@@ -38,6 +41,9 @@ const authSlice = createSlice({
             state.isAuthenticated = true;
             if (action.payload.user) {
                 state.user = action.payload.user;
+            }
+            if (action.payload.has_style_profile !== undefined) {
+                state.has_style_profile = action.payload.has_style_profile;
             }
         },
         setAccessToken: (state, action: PayloadAction<string>) => {
@@ -58,6 +64,10 @@ const authSlice = createSlice({
                 email: action.payload.email,
                 name: `${action.payload.first_name} ${action.payload.last_name}`,
             };
+            // Update has_style_profile if present in user profile
+            if (action.payload.has_style_profile !== undefined) {
+                state.has_style_profile = action.payload.has_style_profile;
+            }
         },
         logout: (state) => {
             state.accessToken = null;
@@ -65,6 +75,7 @@ const authSlice = createSlice({
             state.isAuthenticated = false;
             state.user = null;
             state.userProfile = null;
+            state.has_style_profile = null;
         },
         clearAuth: (state) => {
             state.accessToken = null;
@@ -72,11 +83,15 @@ const authSlice = createSlice({
             state.isAuthenticated = false;
             state.user = null;
             state.userProfile = null;
+            state.has_style_profile = null;
+        },
+        setHasStyleProfile: (state, action: PayloadAction<boolean>) => {
+            state.has_style_profile = action.payload;
         },
     },
 });
 
-export const { setCredentials, setAccessToken, setRefreshToken, setUser, setUserProfile, logout, clearAuth } =
+export const { setCredentials, setAccessToken, setRefreshToken, setUser, setUserProfile, logout, clearAuth, setHasStyleProfile } =
     authSlice.actions;
 export default authSlice.reducer;
 

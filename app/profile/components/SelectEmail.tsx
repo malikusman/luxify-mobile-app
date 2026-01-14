@@ -10,16 +10,16 @@ import { FONTS } from '@/src/constants/fonts';
 import CustomInput from '@/src/components/common/CustomInput';
 import Step2Icon from '@/src/components/icons/Step2Icon';
 
-interface Step2Props {
+interface SelectEmailProps {
     initialValues: { email: string };
     onSubmit: (values: { email: string }) => void;
 }
 
-export interface Step2Ref {
+export interface SelectEmailRef {
     submitForm: () => void;
 }
 
-const Step2 = forwardRef<Step2Ref, Step2Props>(({ initialValues, onSubmit }, ref) => {
+const SelectEmail = forwardRef<SelectEmailRef, SelectEmailProps>(({ initialValues, onSubmit }, ref) => {
     const colors = useThemeColors();
     const t = translations.onboarding;
 
@@ -66,6 +66,7 @@ const Step2 = forwardRef<Step2Ref, Step2Props>(({ initialValues, onSubmit }, ref
                             autoCorrect={false}
                             returnKeyType="done"
                             onSubmitEditing={() => handleSubmit()}
+                            editable={false}
                             icon={
                                 <MaterialCommunityIcons
                                     name="email-outline"
@@ -86,9 +87,9 @@ const Step2 = forwardRef<Step2Ref, Step2Props>(({ initialValues, onSubmit }, ref
     );
 });
 
-Step2.displayName = 'Step2';
+SelectEmail.displayName = 'SelectEmail';
 
-export default Step2;
+export default SelectEmail;
 
 const styles = StyleSheet.create({
     container: {

@@ -40,6 +40,8 @@
     ],
     "extra": {
       "apiUrl": "https://luxify.pebbleintelligentsolutions.com/api/v1/mobile",
+      "backendUrl": "https://luxify.pebbleintelligentsolutions.com",
+      "meshyApiKey": "",
       "googleClientId": "",
       "googleClientSecret": "",
       "facebookAppId": "",

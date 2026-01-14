@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSelector } from 'react-redux';
 import { store, RootState } from '@/src/context/store';
 import { setStyleProfile } from '@/src/context/slices/styleProfileSlice';
+import { setHasStyleProfile } from '@/src/context/slices/authSlice';
 import { queryKeys } from '../../queryClient';
 import { styleProfileApi } from './styleProfileApi';
 import { StyleProfile, CreateStyleProfileRequest, UpdateStyleProfileRequest } from './styleProfileTypes';
@@ -39,8 +40,12 @@ export const useCreateStyleProfile = () => {
         onSuccess: (response) => {
             if (response.data) {
                 store.dispatch(setStyleProfile(response.data));
+                // Update has_style_profile to true when style profile is created
+                store.dispatch(setHasStyleProfile(true));
             }
             queryClient.invalidateQueries({ queryKey: queryKeys.styleProfile.get() });
+            // Also invalidate user profile to refresh has_style_profile from server
+            queryClient.invalidateQueries({ queryKey: queryKeys.user.profile() });
         },
         onError: (error) => {
             toastErrorFromException(error);
@@ -56,8 +61,12 @@ export const useUpdateStyleProfile = () => {
         onSuccess: (response) => {
             if (response.data) {
                 store.dispatch(setStyleProfile(response.data));
+                // Ensure has_style_profile is true when style profile is updated
+                store.dispatch(setHasStyleProfile(true));
             }
             queryClient.invalidateQueries({ queryKey: queryKeys.styleProfile.get() });
+            // Also invalidate user profile to refresh has_style_profile from server
+            queryClient.invalidateQueries({ queryKey: queryKeys.user.profile() });
         },
         onError: (error) => {
             toastErrorFromException(error);

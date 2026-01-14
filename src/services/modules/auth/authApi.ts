@@ -1,6 +1,6 @@
 import { apiClient } from '../../api/client';
 import { API_ENDPOINTS } from '@/src/constants/api';
-import { SignInCredentials, SignUpData, UserProfile, AuthResponse, OAuthProvider, OAuthRequest, OAuthResponse, ForgotPasswordRequest, ForgotPasswordResponse, VerifyResetCodeRequest, VerifyResetCodeResponse, ResetPasswordRequest, ResetPasswordResponse, UpdateUserRequest, UpdateUserResponse } from './authTypes';
+import { SignInCredentials, SignUpData, UserProfile, AuthResponse, OAuthProvider, OAuthRequest, OAuthResponse, ForgotPasswordRequest, ForgotPasswordResponse, VerifyResetCodeRequest, VerifyResetCodeResponse, VerifyEmailRequest, VerifyEmailResponse, ResetPasswordRequest, ResetPasswordResponse, UpdateUserRequest, UpdateUserResponse } from './authTypes';
 
 export const authApi = {
     signUp: async (data: SignUpData): Promise<AuthResponse> => {
@@ -38,6 +38,13 @@ export const authApi = {
     verifyResetCode: async (data: VerifyResetCodeRequest): Promise<VerifyResetCodeResponse> => {
         return await apiClient.post<VerifyResetCodeResponse>(
             API_ENDPOINTS.AUTH.VERIFY_RESET_CODE,
+            data
+        );
+    },
+
+    verifyEmail: async (data: VerifyEmailRequest): Promise<VerifyEmailResponse> => {
+        return await apiClient.post<VerifyEmailResponse>(
+            API_ENDPOINTS.AUTH.VERIFY_EMAIL,
             data
         );
     },

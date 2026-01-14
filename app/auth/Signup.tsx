@@ -18,6 +18,7 @@ import GoogleIcon from '@/src/components/icons/GoogleIcon';
 import { useSignUp } from '@/src/services/modules/auth/authHooks';
 import { useToast } from '@/src/context/ToastContext';
 import { getErrorMessage } from '@/src/utils/errorHandler';
+import { toastSuccess } from '@/src/utils/toast';
 
 export default function SignUp() {
     const router = useRouter();
@@ -44,15 +45,34 @@ export default function SignUp() {
         rememberMe: boolean;
     }) => {
         try {
-            await signUpMutation.mutateAsync({
+            const response = await signUpMutation.mutateAsync({
                 email: values.email,
                 password: values.password,
                 password_confirmation: values.password_confirmation,
                 first_name: values.first_name,
                 last_name: values.last_name,
             });
-            router.replace('/home/(tabs)');
+            
+            console.log('Signup response:', JSON.stringify(response, null, 2));
+            
+            // Show success message
+            toastSuccess('Account created! Please verify your email.');
+            
+            // Small delay to ensure toast is shown before navigation
+            setTimeout(() => {
+                // Redirect to verification code screen after successful signup
+                // This should happen regardless of whether token is present
+                router.push({
+                    pathname: '/auth/VerificationCode',
+                    params: { 
+                        email: values.email,
+                        mode: 'email_verification'
+                    },
+                });
+            }, 100);
         } catch (error: any) {
+            console.error('Signup error:', error);
+            console.error('Signup error details:', JSON.stringify(error, null, 2));
             const errorMessage = getErrorMessage(error);
             showError(errorMessage || 'An error occurred during sign up. Please try again.');
         }

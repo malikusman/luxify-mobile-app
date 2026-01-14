@@ -9,7 +9,7 @@ import HomeIcon from '@/src/components/icons/HomeIcon';
 import ClosetIcon from '@/src/components/icons/ClosetIcon';
 import OutfitsIcon from '@/src/components/icons/OutfitsIcon';
 import ShopIcon from '@/src/components/icons/ShopIcon';
-import DealsIcon from '@/src/components/icons/DealsIcon';
+import ChatIcon from '@/src/components/icons/ChatIcon';
 
 interface TabItem {
     name: string;
@@ -44,10 +44,10 @@ const TABS: TabItem[] = [
         label: 'Shop',
     },
     {
-        name: 'deals',
-        route: '/home/(tabs)/deals',
-        Icon: DealsIcon,
-        label: 'Deals',
+        name: 'chat',
+        route: '/home/(tabs)/chat',
+        Icon: ChatIcon,
+        label: 'Chat',
     },
 ];
 
@@ -62,7 +62,7 @@ export default function CustomTabBar() {
         if (path.includes('/closet')) return 'closet';
         if (path.includes('/outfits')) return 'outfits';
         if (path.includes('/shop')) return 'shop';
-        if (path.includes('/deals')) return 'deals';
+        if (path.includes('/chat')) return 'chat';
         return 'home';
     };
 

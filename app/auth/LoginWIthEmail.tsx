@@ -18,6 +18,8 @@ import GoogleIcon from '@/src/components/icons/GoogleIcon';
 import { useSignIn } from '@/src/services/modules/auth/authHooks';
 import { useToast } from '@/src/context/ToastContext';
 import { getErrorMessage } from '@/src/utils/errorHandler';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/src/context/store';
 
 export default function LoginWithEmail() {
     const router = useRouter();
@@ -30,17 +32,51 @@ export default function LoginWithEmail() {
     const passwordInputRef = useRef<TextInput>(null);
 
     const signInMutation = useSignIn();
+    const has_style_profile = useSelector((state: RootState) => state.auth?.has_style_profile);
 
     const handleSignIn = async (values: { email: string; password: string; rememberMe: boolean }) => {
         try {
-            await signInMutation.mutateAsync({
+            const response = await signInMutation.mutateAsync({
                 email: values.email,
                 password: values.password,
             });
-            router.replace('/home/(tabs)');
+            
+            // Check has_style_profile from response or Redux state
+            const hasStyleProfile = response?.has_style_profile ?? response?.user?.has_style_profile ?? has_style_profile ?? false;
+            
+            // Small delay to ensure Redux state is updated
+            setTimeout(() => {
+                if (hasStyleProfile === true) {
+                    router.dismissAll();
+                        router.replace('/home/(tabs)');
+                } else {
+                    router.dismissAll();
+                        router.replace('/profile/OnboardingFlow');
+                }
+            }, 100);
         } catch (error: any) {
-            const errorMessage = getErrorMessage(error);
-            showError(errorMessage || 'An error occurred during sign in. Please try again.');
+            // Check if this is an email verification error
+            const apiError = error?.statusCode || error?.response?.status;
+            const errorMessage = error?.message || error?.response?.data?.message || '';
+            const isEmailVerificationError = 
+                apiError === 422 && 
+                errorMessage.toLowerCase().includes('confirm your email');
+            
+            if (isEmailVerificationError) {
+                // Redirect to verification page without showing error toast
+                router.push({
+                    pathname: '/auth/VerificationCode',
+                    params: { 
+                        email: values.email,
+                        mode: 'email_verification'
+                    },
+                });
+                return;
+            }
+            
+            // Show error for other cases
+            const errorMsg = getErrorMessage(error);
+            showError(errorMsg || 'An error occurred during sign in. Please try again.');
         }
     };
 

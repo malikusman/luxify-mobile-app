@@ -5,26 +5,38 @@ import { store, RootState } from '@/src/context/store';
 import { setCredentials, logout, setUserProfile } from '@/src/context/slices/authSlice';
 import { queryKeys } from '../../queryClient';
 import { authApi } from './authApi';
-import { AuthResponse, OAuthProvider, OAuthRequest, ForgotPasswordRequest, VerifyResetCodeRequest, ResetPasswordRequest, UserProfile, UpdateUserRequest } from './authTypes';
+import { AuthResponse, OAuthProvider, OAuthRequest, ForgotPasswordRequest, VerifyResetCodeRequest, VerifyEmailRequest, ResetPasswordRequest, UserProfile, UpdateUserRequest } from './authTypes';
 
 export const useSignIn = () => {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: authApi.signIn,
-        onSuccess: (data: AuthResponse) => {
-            store.dispatch(
-                setCredentials({
-                    accessToken: data.token,
-                    refreshToken: null as string | null,
-                    user: {
-                        id: data.user.id,
-                        email: data.user.email,
-                        name: `${data.user.first_name} ${data.user.last_name}`,
-                    },
-                })
-            );
-            queryClient.invalidateQueries({ queryKey: queryKeys.user.profile() });
+        onSuccess: (response: AuthResponse | any) => {
+            const user = response?.user || (response as any)?.data?.user;
+            const token = response?.token || (response as any)?.data?.token;
+            const has_style_profile = response?.has_style_profile ?? (response as any)?.data?.has_style_profile ?? user?.has_style_profile ?? false;
+            
+            if (token && user) {
+                store.dispatch(
+                    setCredentials({
+                        accessToken: token,
+                        refreshToken: null as string | null,
+                        user: {
+                            id: user.id,
+                            email: user.email,
+                            name: `${user.first_name} ${user.last_name}`,
+                        },
+                        has_style_profile: has_style_profile,
+                    })
+                );
+                
+                if (user && typeof user === 'object' && 'id' in user) {
+                    store.dispatch(setUserProfile(user as UserProfile));
+                }
+                
+                queryClient.invalidateQueries({ queryKey: queryKeys.user.profile() });
+            }
         },
     });
 };
@@ -35,18 +47,31 @@ export const useSignUp = () => {
     return useMutation({
         mutationFn: authApi.signUp,
         onSuccess: (data: AuthResponse) => {
-            store.dispatch(
-                setCredentials({
-                    accessToken: data.token,
-                    refreshToken: null as string | null,
-                    user: {
-                        id: data.user.id,
-                        email: data.user.email,
-                        name: `${data.user.first_name} ${data.user.last_name}`,
-                    },
-                })
-            );
-            queryClient.invalidateQueries({ queryKey: queryKeys.user.profile() });
+            try {
+                // Only set credentials if token is present (email is confirmed)
+                // If email is not confirmed, token will be undefined
+                if (data.token && data.user) {
+                    store.dispatch(
+                        setCredentials({
+                            accessToken: data.token,
+                            refreshToken: null as string | null,
+                            user: {
+                                id: data.user.id,
+                                email: data.user.email,
+                                name: `${data.user.first_name} ${data.user.last_name}`,
+                            },
+                            has_style_profile: data.has_style_profile ?? data.user.has_style_profile ?? false,
+                        })
+                    );
+                    queryClient.invalidateQueries({ queryKey: queryKeys.user.profile() });
+                }
+                // If no token, user needs to verify email first - don't set credentials
+                // This is expected behavior when email_confirmed is false
+            } catch (error) {
+                // Log error but don't throw - allow mutation to complete successfully
+                // The component will handle the redirect regardless
+                console.warn('Error in signup onSuccess callback:', error);
+            }
         },
     });
 };
@@ -85,8 +110,6 @@ export const useUserProfile = () => {
     useEffect(() => {
         if (queryResult.data) {
             store.dispatch(setUserProfile(queryResult.data));
-            console.log('✅ User profile fetched and stored in Redux:');
-            console.log(JSON.stringify(queryResult.data, null, 2));
         }
     }, [queryResult.data]);
 
@@ -105,17 +128,38 @@ export const useOAuth = () => {
             authApi.oauth(provider, data),
         onSuccess: (response) => {
             if (response.success && response.data) {
+                const user = response.data.user;
+                const token = response.data.token;
+                
                 store.dispatch(
                     setCredentials({
-                        accessToken: response.data.token,
+                        accessToken: token,
                         refreshToken: null as string | null,
                         user: {
-                            id: response.data.user.id,
-                            email: response.data.user.email,
-                            name: `${response.data.user.first_name} ${response.data.user.last_name}`,
+                            id: user.id,
+                            email: user.email,
+                            name: `${user.first_name} ${user.last_name}`,
                         },
+                        has_style_profile: response.data.has_style_profile ?? false,
                     })
                 );
+                
+                if (user && token) {
+                    const userProfile: UserProfile = {
+                        id: user.id,
+                        email: user.email,
+                        first_name: user.first_name,
+                        last_name: user.last_name,
+                        phone_number: null,
+                        avatar_url: null,
+                        role: 'user',
+                        created_at: new Date().toISOString(),
+                        has_style_profile: response.data.has_style_profile ?? false,
+                    };
+                    
+                    store.dispatch(setUserProfile(userProfile));
+                }
+                
                 queryClient.invalidateQueries({ queryKey: queryKeys.user.profile() });
             }
         },
@@ -131,6 +175,46 @@ export const useForgotPassword = () => {
 export const useVerifyResetCode = () => {
     return useMutation({
         mutationFn: (data: VerifyResetCodeRequest) => authApi.verifyResetCode(data),
+    });
+};
+
+export const useVerifyEmail = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (data: VerifyEmailRequest) => authApi.verifyEmail(data),
+        onSuccess: (response) => {
+            try {
+                // After interceptor extracts data, response structure is: { user, token, message }
+                // Check both direct properties and nested data
+                const token = response?.token || (response as any)?.data?.token;
+                const user = response?.user || (response as any)?.data?.user;
+                const has_style_profile = response?.has_style_profile ?? (response as any)?.data?.has_style_profile ?? user?.has_style_profile ?? false;
+                
+                if (token && user) {
+                    store.dispatch(
+                        setCredentials({
+                            accessToken: token,
+                            refreshToken: null as string | null,
+                            user: {
+                                id: user.id,
+                                email: user.email,
+                                name: `${user.first_name} ${user.last_name}`,
+                            },
+                            has_style_profile: has_style_profile,
+                        })
+                    );
+                    
+                    if (user && typeof user === 'object' && 'id' in user) {
+                        store.dispatch(setUserProfile(user as UserProfile));
+                    }
+                    
+                    queryClient.invalidateQueries({ queryKey: queryKeys.user.profile() });
+                }
+            } catch (error) {
+                console.error('Error in useVerifyEmail onSuccess:', error);
+            }
+        },
     });
 };
 

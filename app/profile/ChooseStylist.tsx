@@ -12,6 +12,7 @@ import ChooseStylistStep1, { Stylist } from './components/ChooseStylistStep1';
 import ChooseStylistStep2 from './components/ChooseStylistStep2';
 import { ONBOARDING } from '@/src/constants/constants';
 import { SocialPlatform } from '@/src/services/modules/socialMedia/socialMediaService';
+import { useSelectStylist } from '@/src/services/modules/stylists/stylistHooks';
 
 export default function ChooseStylist() {
     const router = useRouter();
@@ -20,6 +21,7 @@ export default function ChooseStylist() {
     const [currentStep, setCurrentStep] = useState(1);
     const [selectedStylist, setSelectedStylist] = useState<Stylist | null>(null);
     const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
+    const selectStylistMutation = useSelectStylist();
 
     const handleBack = () => {
         if (currentStep > 1) {
@@ -29,12 +31,19 @@ export default function ChooseStylist() {
         }
     };
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (currentStep === 1) {
             if (!selectedStylist) {
                 return;
             }
-            setCurrentStep(2);
+            // Save the stylist selection and navigate to premium page
+            try {
+                await selectStylistMutation.mutateAsync(selectedStylist.id);
+                router.push('/premium/Subscription');
+            } catch (error) {
+                // Error is already handled by the mutation's onError callback
+                console.error('Failed to select stylist:', error);
+            }
         } else if (currentStep === 2) {
             router.push('/premium/Subscription');
         }
@@ -81,7 +90,8 @@ export default function ChooseStylist() {
         }
     };
 
-    const isNextDisabled = currentStep === 1 && !selectedStylist;
+    const isNextDisabled = currentStep === 1 && (!selectedStylist || selectStylistMutation.isPending);
+    const isLoading = currentStep === 1 && selectStylistMutation.isPending;
 
     return (
         <KeyboardAvoidingView
@@ -120,6 +130,7 @@ export default function ChooseStylist() {
                         borderColor={colors.buttonPrimary}
                         onPress={handleNext}
                         disabled={isNextDisabled}
+                        loading={isLoading}
                     />
                 </View>
             </View>

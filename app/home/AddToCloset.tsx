@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
@@ -8,24 +8,20 @@ import { scaleFontSize } from '@/src/utils/FontSizeUtil';
 import { useThemeColors } from '@/src/theme/Colors';
 import { translations } from '@/src/constants/translations';
 import { FONTS } from '@/src/constants/fonts';
-import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '@/src/context/store';
-import { addImage, addMultipleImages } from '@/src/context/slices/closetSlice';
 import { pickMultipleImagesFromGallery } from '@/src/services/imagePickerService';
 import { LIMITS, IMAGE_QUALITY } from '@/src/constants/constants';
+import { useCreateWardrobeItem } from '@/src/services/modules/wardrobeItems/wardrobeItemsHooks';
 
 export default function AddToClosetScreen() {
     const router = useRouter();
     const colors = useThemeColors();
     const insets = useSafeAreaInsets();
-    const dispatch = useDispatch();
     const t = translations.closet;
-    const { images, maxImages } = useSelector((state: RootState) => state.closet);
     const [permission, requestPermission] = useCameraPermissions();
     const [cameraType, setCameraType] = useState<CameraType>('back');
     const cameraRef = useRef<CameraView>(null);
-    
-    const remainingSlots = maxImages - images.length;
+    const createWardrobeItemMutation = useCreateWardrobeItem();
+    const [isUploading, setIsUploading] = useState(false);
 
     useEffect(() => {
         if (permission && !permission.granted) {
@@ -38,11 +34,6 @@ export default function AddToClosetScreen() {
     };
 
     const handleTakePhoto = async () => {
-        if (remainingSlots <= 0) {
-            Alert.alert(t.maximumReached);
-            return;
-        }
-
         if (!cameraRef.current) {
             return;
         }
@@ -53,30 +44,59 @@ export default function AddToClosetScreen() {
             });
 
             if (photo?.uri) {
-                dispatch(addImage(photo.uri));
-                router.back();
+                // Upload image(s) to API and navigate to closet
+                await handleUploadImages([photo.uri]);
             }
         } catch (error) {
             Alert.alert(translations.common.error, 'Failed to take photo. Please try again.');
         }
     };
 
-    const handlePickFromGallery = async () => {
-        if (remainingSlots <= 0) {
-            Alert.alert(t.maximumReached);
-            return;
+    const handleUploadImages = async (imageUris: string[]) => {
+        if (isUploading || imageUris.length === 0) return;
+        
+        setIsUploading(true);
+        
+        try {
+            // Upload all images in parallel
+            await Promise.all(
+                imageUris.map(imageUri => {
+                    const individualPayload = { imageUri };
+                    console.log('Upload payload:', JSON.stringify(individualPayload, null, 2));
+                    return createWardrobeItemMutation.mutateAsync(individualPayload);
+                })
+            );
+            
+            // Navigate to closet after all uploads complete
+            router.dismissAll();
+                        router.replace('/home/(tabs)/closet' as any);
+        } catch (error: any) {
+            console.error('Error uploading wardrobe items:', error);
+            Alert.alert(
+                translations.common.error,
+                error?.message || 'Failed to upload images. Please try again.'
+            );
+        } finally {
+            setIsUploading(false);
         }
+    };
 
-        const maxToSelect = Math.min(remainingSlots, LIMITS.MAX_PHOTOS_SELECT);
-        const result = await pickMultipleImagesFromGallery(maxToSelect);
+    const handlePickFromGallery = async () => {
+        // Always allow multiple image selection
+        const result = await pickMultipleImagesFromGallery(LIMITS.MAX_PHOTOS_SELECT);
         
         if (result.success) {
+            const imageUris: string[] = [];
+            
             if (result.uris && result.uris.length > 0) {
-                dispatch(addMultipleImages(result.uris));
-                router.back();
+                imageUris.push(...result.uris);
             } else if (result.uri) {
-                dispatch(addImage(result.uri));
-                router.back();
+                imageUris.push(result.uri);
+            }
+            
+            if (imageUris.length > 0) {
+                // Upload images to API and navigate to closet
+                await handleUploadImages(imageUris);
             }
         } else if (result.error) {
             Alert.alert(translations.common.error, result.error);
@@ -126,18 +146,38 @@ export default function AddToClosetScreen() {
                         <Text style={styles.title}>{t.addToClosetTitle}</Text>
                         <Text style={styles.description}>{t.addToClosetDescription}</Text>
                     </View>
+                    {isUploading && (
+                        <View style={styles.uploadingOverlay}>
+                            <ActivityIndicator size="large" color="#FFFFFF" />
+                            <Text style={styles.uploadingText}>
+                                Uploading images...
+                            </Text>
+                        </View>
+                    )}
                 </View>
 
                 <View style={[styles.controls, { paddingBottom: insets.bottom }]}>
-                    <TouchableOpacity onPress={handlePickFromGallery} style={styles.controlButton}>
+                    <TouchableOpacity 
+                        onPress={handlePickFromGallery} 
+                        style={styles.controlButton}
+                        disabled={isUploading}
+                    >
                         <Text style={styles.controlText}>{t.photos}</Text>
                     </TouchableOpacity>
                     
-                    <TouchableOpacity onPress={handleTakePhoto} style={styles.shutterButton}>
+                    <TouchableOpacity 
+                        onPress={handleTakePhoto} 
+                        style={styles.shutterButton}
+                        disabled={isUploading}
+                    >
                         <View style={styles.shutterInner} />
                     </TouchableOpacity>
                     
-                    <TouchableOpacity onPress={handleFlipCamera} style={styles.controlButton}>
+                    <TouchableOpacity 
+                        onPress={handleFlipCamera} 
+                        style={styles.controlButton}
+                        disabled={isUploading}
+                    >
                         <Text style={styles.controlText}>{t.flip}</Text>
                     </TouchableOpacity>
                 </View>
@@ -248,6 +288,23 @@ const styles = StyleSheet.create({
     permissionButtonText: {
         fontSize: scaleFontSize(16),
         fontFamily: FONTS.nunitoBold,
+    },
+    uploadingOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: scaleFontSize(12),
+    },
+    uploadingText: {
+        color: '#FFFFFF',
+        fontSize: scaleFontSize(16),
+        fontFamily: FONTS.nunitoRegular,
+        marginTop: scaleFontSize(12),
     },
 });
 
