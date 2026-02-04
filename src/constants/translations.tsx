@@ -164,10 +164,17 @@ export const translations = {
 
     // Home
     home: {
+        brandSlogan: 'A curated dialogue between style and \n substance.',
         welcomeMessage: 'Welcome, Lucia',
         welcome: 'Welcome',
         instructionText: 'Add your pieces to get personalized daily outfits from your closet.',
+        aiStylistTitleLine1: 'Your AI Stylist',
+        aiStylistTitleLine2: 'Is Ready',
+        aiStylistSubtitle: 'Get Live Consultation with our Top Notch Stylists',
+        talkToStylist: 'Talk To Stylist',
+        ourPremiumServices: 'Our Premium Services',
         closet: 'Closet',
+        lookbook: 'Look book',
         addToCloset: '+ Add to closet',
         trackYourCloset: 'Track your closet',
         dontKnowWhereToStart: "Don't know where to start?",

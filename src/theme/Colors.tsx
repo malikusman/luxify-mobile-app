@@ -54,6 +54,15 @@ export const Colors = {
         
         // Success Icon Background
         successIconBackground: '#FAFAFA',
+
+        // Home screen
+        homeCardBackground: '#E8E8E8',
+        homeCardText: '#2C2C2C',
+        homeCardSubtitle: '#6B7280',
+        homeTalkToStylistButton: '#1A1A1A',
+        homeImagePlaceholderBg: '#F0F0F0',
+        homeOverlay: 'rgba(0, 0, 0, 0.35)',
+        homeClosetCardTitle: '#FFFFFF',
     },
     dark: {
         // Primary Colors
@@ -109,6 +118,15 @@ export const Colors = {
         
         // Success Icon Background
         successIconBackground: '#FAFAFA',
+
+        // Home screen
+        homeCardBackground: '#2A2A2A',
+        homeCardText: '#E8E8E8',
+        homeCardSubtitle: '#9CA3AF',
+        homeTalkToStylistButton: '#1A1A1A',
+        homeImagePlaceholderBg: '#1F1F1F',
+        homeOverlay: 'rgba(0, 0, 0, 0.5)',
+        homeClosetCardTitle: '#FFFFFF',
     },
 };
 

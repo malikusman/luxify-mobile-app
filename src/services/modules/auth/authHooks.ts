@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSelector } from 'react-redux';
 import { store, RootState } from '@/src/context/store';
 import { setCredentials, logout, setUserProfile } from '@/src/context/slices/authSlice';
+import { resetProfile } from '@/src/context/slices/profileSlice';
+import { clearStyleProfile } from '@/src/context/slices/styleProfileSlice';
 import { queryKeys } from '../../queryClient';
 import { authApi } from './authApi';
 import { AuthResponse, OAuthProvider, OAuthRequest, ForgotPasswordRequest, VerifyResetCodeRequest, VerifyEmailRequest, ResetPasswordRequest, UserProfile, UpdateUserRequest } from './authTypes';
@@ -18,6 +20,9 @@ export const useSignIn = () => {
             const has_style_profile = response?.has_style_profile ?? (response as any)?.data?.has_style_profile ?? user?.has_style_profile ?? false;
             
             if (token && user) {
+                // Clear previous user data before setting new credentials
+                store.dispatch(resetProfile());
+                store.dispatch(clearStyleProfile());
                 store.dispatch(
                     setCredentials({
                         accessToken: token,
@@ -51,6 +56,9 @@ export const useSignUp = () => {
                 // Only set credentials if token is present (email is confirmed)
                 // If email is not confirmed, token will be undefined
                 if (data.token && data.user) {
+                    // Clear previous user data before setting new credentials
+                    store.dispatch(resetProfile());
+                    store.dispatch(clearStyleProfile());
                     store.dispatch(
                         setCredentials({
                             accessToken: data.token,
@@ -63,6 +71,11 @@ export const useSignUp = () => {
                             has_style_profile: data.has_style_profile ?? data.user.has_style_profile ?? false,
                         })
                     );
+                    
+                    if (data.user && typeof data.user === 'object' && 'id' in data.user) {
+                        store.dispatch(setUserProfile(data.user as UserProfile));
+                    }
+                    
                     queryClient.invalidateQueries({ queryKey: queryKeys.user.profile() });
                 }
                 // If no token, user needs to verify email first - don't set credentials
@@ -82,11 +95,19 @@ export const useSignOut = () => {
     return useMutation({
         mutationFn: authApi.signOut,
         onSuccess: () => {
+            // Clear all user-specific data from Redux slices
             store.dispatch(logout());
+            store.dispatch(resetProfile());
+            store.dispatch(clearStyleProfile());
+            // Clear all React Query cache
             queryClient.clear();
         },
         onError: (error: any) => {
+            // Clear all user-specific data from Redux slices even on error
             store.dispatch(logout());
+            store.dispatch(resetProfile());
+            store.dispatch(clearStyleProfile());
+            // Clear all React Query cache
             queryClient.clear();
             
             const statusCode = error?.statusCode || error?.response?.status;
@@ -131,6 +152,9 @@ export const useOAuth = () => {
                 const user = response.data.user;
                 const token = response.data.token;
                 
+                // Clear previous user data before setting new credentials
+                store.dispatch(resetProfile());
+                store.dispatch(clearStyleProfile());
                 store.dispatch(
                     setCredentials({
                         accessToken: token,
@@ -192,6 +216,9 @@ export const useVerifyEmail = () => {
                 const has_style_profile = response?.has_style_profile ?? (response as any)?.data?.has_style_profile ?? user?.has_style_profile ?? false;
                 
                 if (token && user) {
+                    // Clear previous user data before setting new credentials
+                    store.dispatch(resetProfile());
+                    store.dispatch(clearStyleProfile());
                     store.dispatch(
                         setCredentials({
                             accessToken: token,

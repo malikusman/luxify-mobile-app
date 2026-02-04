@@ -34,8 +34,27 @@ export class InterceptorManager {
                     if (!config.headers['Accept']) {
                         config.headers['Accept'] = 'application/json';
                     }
+                    
+                    // Log FormData request for debugging
+                    console.log('🌐 FormData Request:', {
+                        method: config.method?.toUpperCase(),
+                        url: config.url,
+                        baseURL: config.baseURL,
+                        fullUrl: `${config.baseURL}${config.url}`,
+                        hasData: !!config.data,
+                        dataType: 'FormData (multipart/form-data)',
+                        note: 'FormData payload is binary and may not be visible in network inspectors',
+                    });
+                } else {
+                    // Log regular JSON requests
+                    console.log('🌐 JSON Request:', {
+                        method: config.method?.toUpperCase(),
+                        url: config.url,
+                        baseURL: config.baseURL,
+                        fullUrl: `${config.baseURL}${config.url}`,
+                        payload: config.data,
+                    });
                 }
-
 
                 return config;
             },

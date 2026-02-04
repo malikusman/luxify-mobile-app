@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -30,6 +30,13 @@ export default function ClosetScreen() {
     const items = useMemo(() => {
         return mapWardrobeItemsToClosetItems(wardrobeItems);
     }, [wardrobeItems]);
+
+    // Console closet data for debugging
+    useEffect(() => {
+        console.log('[Closet] Raw wardrobe items:', wardrobeItems);
+        console.log('[Closet] Mapped closet items:', items);
+        console.log('[Closet] Item count:', items?.length ?? 0);
+    }, [wardrobeItems, items]);
 
     // Get filter params from Filters screen
     const filterCategories = params.selectedCategories ? JSON.parse(params.selectedCategories as string) : [];
@@ -188,7 +195,7 @@ export default function ClosetScreen() {
                                     <Text style={[styles.allClothesTitle, { color: colors.text }]}>
                                         {t.allClothes}
                                     </Text>
-                                    <TouchableOpacity 
+                                    {/* <TouchableOpacity 
                                         style={[styles.filterButton, { borderColor: colors.border }]}
                                         activeOpacity={0.7}
                                         onPress={() => router.push('/home/Filters' as any)}
@@ -197,7 +204,7 @@ export default function ClosetScreen() {
                                         <Text style={[styles.filterText, { color: colors.text }]}>
                                             {t.filter}
                                         </Text>
-                                    </TouchableOpacity>
+                                    </TouchableOpacity> */}
                                 </View>
 
                                 {/* Search Bar */}
@@ -256,12 +263,6 @@ export default function ClosetScreen() {
                                             ]}
                                             onPress={() => setSelectedCategory(category)}
                                         >
-                                            <Ionicons 
-                                                name={getCategoryIcon(category)} 
-                                                size={scaleFontSize(16)} 
-                                                color={selectedCategory === category ? colors.background : colors.text} 
-                                                style={styles.categoryTabIcon}
-                                            />
                                             <Text style={[
                                                 styles.categoryTabText,
                                                 {

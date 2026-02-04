@@ -36,16 +36,16 @@ export default function ChooseStylist() {
             if (!selectedStylist) {
                 return;
             }
-            // Save the stylist selection and navigate to premium page
+            // Save the stylist selection and navigate to home
             try {
                 await selectStylistMutation.mutateAsync(selectedStylist.id);
-                router.push('/premium/Subscription');
+                router.push('/home/(tabs)' as any);
             } catch (error) {
                 // Error is already handled by the mutation's onError callback
                 console.error('Failed to select stylist:', error);
             }
         } else if (currentStep === 2) {
-            router.push('/premium/Subscription');
+            router.push('/home/(tabs)' as any);
         }
     };
 

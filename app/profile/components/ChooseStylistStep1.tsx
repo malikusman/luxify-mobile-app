@@ -8,6 +8,7 @@ import { FONTS } from '@/src/constants/fonts';
 import { CAROUSEL, ANIMATION } from '@/src/constants/constants';
 import { useStylists, useSelectStylist, useDeselectStylist, useMyStylist } from '@/src/services/modules/stylists/stylistHooks';
 import { Stylist } from '@/src/services/modules/stylists/stylistTypes';
+import { getStylistImage } from '@/src/utils/stylistImageMapper';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH * CAROUSEL.CARD_WIDTH_RATIO;
@@ -18,9 +19,11 @@ const ITEM_WIDTH = CARD_WIDTH + CARD_SPACING;
 interface ChooseStylistStep1Props {
     selectedStylist: Stylist | null;
     onSelectStylist: (stylist: Stylist) => void;
+    disableAutoSelect?: boolean;
+    disableMutation?: boolean;
 }
 
-export default function ChooseStylistStep1({ selectedStylist, onSelectStylist }: ChooseStylistStep1Props) {
+export default function ChooseStylistStep1({ selectedStylist, onSelectStylist, disableAutoSelect = false, disableMutation = false }: ChooseStylistStep1Props) {
     const colors = useThemeColors();
     const t = translations.onboarding;
     const flatListRef = useRef<FlatList>(null);
@@ -36,8 +39,21 @@ export default function ChooseStylistStep1({ selectedStylist, onSelectStylist }:
         return allStylists.filter((stylist) => stylist.is_active !== false);
     }, [allStylists]);
 
+    // Create a map of stylist IDs to their index for consistent image mapping
+    // Use allStylists (sorted) to ensure consistent mapping across all screens
+    const stylistIndexMap = React.useMemo(() => {
+        const map = new Map<string, number>();
+        const sortedStylists = [...allStylists].sort((a, b) => a.id.localeCompare(b.id));
+        sortedStylists.forEach((s, index) => {
+            map.set(s.id, index);
+        });
+        return map;
+    }, [allStylists]);
+
     // Initialize with my selected stylist if available
     useEffect(() => {
+        if (disableAutoSelect) return; // Skip auto-selection if disabled
+        
         if (stylists.length > 0 && !isLoading) {
             // Extract stylist from myStylist response (could be direct Stylist or { stylist: Stylist, user_stylist: {...} })
             const selectedStylistData = (myStylist as any)?.stylist || myStylist;
@@ -45,7 +61,10 @@ export default function ChooseStylistStep1({ selectedStylist, onSelectStylist }:
             if (selectedStylistData && selectedStylistData.id) {
                 const stylistInList = stylists.find(s => s.id === selectedStylistData.id);
                 if (stylistInList) {
-                    onSelectStylist(stylistInList);
+                    // Only call onSelectStylist if selectedStylist is not already set
+                    if (!selectedStylist || selectedStylist.id !== stylistInList.id) {
+                        onSelectStylist(stylistInList);
+                    }
                     // Scroll to the selected stylist
                     const index = stylists.findIndex(s => s.id === selectedStylistData.id);
                     if (index >= 0) {
@@ -68,7 +87,7 @@ export default function ChooseStylistStep1({ selectedStylist, onSelectStylist }:
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [stylists, myStylist, isLoading]);
+    }, [stylists, myStylist, isLoading, disableAutoSelect]);
 
     // Sync carousel position with selected stylist
     useEffect(() => {
@@ -116,7 +135,9 @@ export default function ChooseStylistStep1({ selectedStylist, onSelectStylist }:
             const otherStylist = stylists.find(s => s.id !== stylist.id);
             if (otherStylist) {
                 onSelectStylist(otherStylist);
-                selectStylistMutation.mutate(otherStylist.id);
+                if (!disableMutation) {
+                    selectStylistMutation.mutate(otherStylist.id);
+                }
                 // Scroll to the newly selected stylist
                 const index = stylists.findIndex(s => s.id === otherStylist.id);
                 if (index >= 0) {
@@ -127,7 +148,9 @@ export default function ChooseStylistStep1({ selectedStylist, onSelectStylist }:
         } else {
             // Select the new stylist (replaces previous selection)
             onSelectStylist(stylist);
-            selectStylistMutation.mutate(stylist.id);
+            if (!disableMutation) {
+                selectStylistMutation.mutate(stylist.id);
+            }
             // Scroll to the selected stylist
             const index = stylists.findIndex(s => s.id === stylist.id);
             if (index >= 0) {
@@ -153,11 +176,9 @@ export default function ChooseStylistStep1({ selectedStylist, onSelectStylist }:
             scale = ANIMATION.SCALE_DISTANT_CARD;
         }
 
-        // Handle image source - can be URL from API or local require
-        const backendUrl = Constants.expoConfig?.extra?.backendUrl;
-        const imageSource = item.avatar_url 
-            ? { uri: backendUrl ? `${backendUrl}${item.avatar_url}` : item.avatar_url } 
-            : require('@/assets/ava.png');
+        // Use the stylist image mapper with index from the full stylist list for consistent mapping
+        const stylistIndex = stylistIndexMap.get(item.id) ?? 0;
+        const imageSource = getStylistImage(item.id, stylistIndex, item.name);
 
         return (
             <TouchableOpacity

@@ -229,9 +229,13 @@ export default function PhotoUpload() {
                                 {photo && photo.uri ? (
                                     <>
                                         <Image
-                                            source={{ uri: Constants.expoConfig?.extra?.backendUrl + photo.uri }}
+                                            source={{ 
+                                                uri: photo.uri.startsWith('http://') || photo.uri.startsWith('https://')
+                                                    ? photo.uri
+                                                    : `${Constants.expoConfig?.extra?.backendUrl}${photo.uri}`
+                                            }}
                                             style={styles.placeholderImage}
-                                            resizeMode="cover"
+                                            resizeMode="contain"
                                         />
                                         {isUploading && (
                                             <View style={styles.uploadingOverlay}>

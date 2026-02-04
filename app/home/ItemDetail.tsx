@@ -9,8 +9,7 @@ import { removeItem } from '@/src/context/slices/closetSlice';
 import { useWardrobeItem, useDeleteWardrobeItem, useUpdateWardrobeItem } from '@/src/services/modules/wardrobeItems/wardrobeItemsHooks';
 import { mapWardrobeItemToClosetItem } from '@/src/utils/wardrobeItemMapper';
 
-const SIZES = ['S', 'M', 'L', 'XL', 'XXL'];
-const FIT_TYPES = ['Loose Fit', 'Normal', 'Tight'];
+// These will be populated from actual tag data
 import { useThemeColors } from '@/src/theme/Colors';
 import { FONTS } from '@/src/constants/fonts';
 import { scaleFontSize } from '@/src/utils/FontSizeUtil';
@@ -62,6 +61,77 @@ export default function ItemDetailScreen() {
 
     // Map wardrobe item to closet item format for display
     const item = wardrobeItem ? mapWardrobeItemToClosetItem(wardrobeItem) : null;
+    
+    // Format category key to display name (e.g. clothing_type -> Clothing Type)
+    const categoryKeyToDisplayName = (key: string): string =>
+        key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+
+    // Group all tags by category for dynamic display (from tags_by_category and tags)
+    const tagsByCategoryGrouped = React.useMemo(() => {
+        if (!wardrobeItem) return {};
+        const grouped: { [category: string]: { values: string[]; currentValue?: string } } = {};
+
+        // Process tags_by_category – all keys (clothing_type, color, style, fabric, etc.)
+        const tagsByCat = wardrobeItem.tags_by_category;
+        if (tagsByCat && typeof tagsByCat === 'object') {
+            Object.entries(tagsByCat).forEach(([key, values]) => {
+                if (Array.isArray(values) && values.length > 0) {
+                    const displayName = categoryKeyToDisplayName(key);
+                    grouped[displayName] = {
+                        values: [...values],
+                        currentValue: values[0],
+                    };
+                }
+            });
+        }
+
+        // Merge in individual tags (in case tags_by_category is missing or empty)
+        const tags = wardrobeItem.tags;
+        if (Array.isArray(tags)) {
+            tags.forEach((tag) => {
+                const categoryName = categoryKeyToDisplayName(tag.category);
+                if (!grouped[categoryName]) {
+                    grouped[categoryName] = { values: [] };
+                }
+                if (!grouped[categoryName].values.includes(tag.name)) {
+                    grouped[categoryName].values.push(tag.name);
+                }
+                if (!grouped[categoryName].currentValue) {
+                    grouped[categoryName].currentValue = tag.name;
+                }
+            });
+        }
+
+        return grouped;
+    }, [wardrobeItem]);
+    
+    // Get brand name from tags (if available)
+    const brandTag = wardrobeItem?.tags.find(tag => 
+        tag.category.toLowerCase().includes('brand')
+    );
+    const brandName = brandTag?.name || '';
+    
+    // Color mapping for display
+    const getColorHex = (colorName: string): string => {
+        const colorMap: { [key: string]: string } = {
+            'black': '#000000',
+            'white': '#FFFFFF',
+            'red': '#FF0000',
+            'blue': '#0000FF',
+            'green': '#008000',
+            'yellow': '#FFFF00',
+            'orange': '#FFA500',
+            'purple': '#800080',
+            'pink': '#FFC0CB',
+            'brown': '#A52A2A',
+            'gray': '#808080',
+            'grey': '#808080',
+            'navy': '#000080',
+            'beige': '#F5F5DC',
+            'tan': '#D2B48C',
+        };
+        return colorMap[colorName.toLowerCase()] || '#000000';
+    };
 
     if (isLoading) {
         return (
@@ -230,7 +300,7 @@ export default function ItemDetailScreen() {
                     <Ionicons name={isEditMode ? "close" : "arrow-back"} size={scaleFontSize(24)} color={colors.text} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>
-                    {isEditMode ? (t.editItem || 'Edit Item') : (t.addedItem || 'Added Item')}
+                    {isEditMode ? (t.editItem || 'Edit Item') : (t.addNewItemTitle || 'Add New item')}
                 </Text>
                 {isEditMode ? (
                     <TouchableOpacity
@@ -306,11 +376,11 @@ export default function ItemDetailScreen() {
 
                 {/* Product Details */}
                 <View style={styles.detailsContainer}>
-                    {/* Name Field */}
-                    <View style={[styles.nameCard, { backgroundColor: colors.surface }]}>
+                    {/* Product Name with Brand */}
+                    <View style={styles.nameBrandRow}>
                         {isEditMode ? (
                             <TextInput
-                                style={[styles.editInput, { 
+                                style={[styles.editNameInput, { 
                                     color: colors.text, 
                                     borderColor: colors.border,
                                     backgroundColor: colors.background 
@@ -321,106 +391,58 @@ export default function ItemDetailScreen() {
                                 placeholderTextColor={colors.textSecondary}
                             />
                         ) : (
-                            <Text style={[styles.itemName, { color: colors.text }]}>
-                                {item.itemName || item.category || 'Unnamed Item'}
-                            </Text>
+                            <>
+                                <Text style={[styles.productName, { color: colors.text }]}>
+                                    {item.itemName || item.category || 'Unnamed Item'}
+                                </Text>
+                                {brandName && (
+                                    <Text style={[styles.brandName, { color: colors.text }]}>
+                                        {brandName}
+                                    </Text>
+                                )}
+                            </>
                         )}
                     </View>
 
-                    {/* Tags by Category - Editable in Edit Mode */}
-                    {Object.keys(tagsByCategory).length > 0 && (
-                        <View style={[styles.sectionCard, { backgroundColor: colors.surface }]}>
-                            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                                {isEditMode ? 'Select Tags by Category' : 'Tags by Category'}
-                            </Text>
-                            {Object.entries(tagsByCategory).map(([category, tags]) => {
-                                const categoryDisplayName = category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                                return (
-                                    <View key={category} style={styles.categoryTagSection}>
-                                        <Text style={[styles.categoryTagLabel, { color: colors.textSecondary }]}>
-                                            {categoryDisplayName}
-                                        </Text>
-                                        <View style={styles.tagsContainer}>
-                                            {tags.map((tag) => {
-                                                const isSelected = selectedTagIds.includes(tag.id);
-                                                return (
-                                                    <TouchableOpacity
-                                                        key={tag.id}
-                                                        onPress={() => isEditMode && handleToggleTag(tag.id)}
-                                                        disabled={!isEditMode}
-                                                        style={[
-                                                            styles.tagChip, 
-                                                            { 
-                                                                backgroundColor: isEditMode && isSelected 
-                                                                    ? colors.buttonPrimary 
-                                                                    : colors.background, 
-                                                                borderColor: isEditMode && isSelected 
-                                                                    ? colors.buttonPrimary 
-                                                                    : colors.border,
-                                                                opacity: isEditMode && !isSelected ? 0.6 : 1,
-                                                            }
-                                                        ]}
-                                                    >
-                                                        <Text style={[
-                                                            styles.tagText, 
-                                                            { 
-                                                                color: isEditMode && isSelected 
-                                                                    ? colors.buttonText 
-                                                                    : colors.text 
-                                                            }
-                                                        ]}>
-                                                            {tag.name}
-                                                        </Text>
-                                                        {isEditMode && isSelected && (
-                                                            <Ionicons 
-                                                                name="checkmark-circle" 
-                                                                size={scaleFontSize(16)} 
-                                                                color={colors.buttonText} 
-                                                                style={styles.tagCheckIcon}
-                                                            />
-                                                        )}
-                                                    </TouchableOpacity>
-                                                );
-                                            })}
-                                        </View>
-                                    </View>
-                                );
-                            })}
-                            {isEditMode && (
-                                <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-                                    Tap tags to select/deselect. Only selected tags will be kept.
+                    {/* Tag categories (detail + edit) */}
+                    {Object.entries(tagsByCategoryGrouped)
+                        .filter(([categoryName]) => !categoryName.toLowerCase().includes('brand'))
+                        .filter(([, categoryData]) => categoryData.values.length > 0)
+                        .map(([categoryName, categoryData]) => (
+                            <View key={categoryName} style={styles.attributeSection}>
+                                <Text style={[styles.attributeLabel, { color: colors.text }]}>
+                                    {categoryName}
                                 </Text>
-                            )}
-                        </View>
-                    )}
-
-                    {/* All Tags Display (Read-only view when not editing) */}
-                    {!isEditMode && wardrobeItem.tags && wardrobeItem.tags.length > 0 && (
-                        <View style={[styles.sectionCard, { backgroundColor: colors.surface }]}>
-                            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                                All Tags
-                            </Text>
-                            <View style={styles.tagsContainer}>
-                                {wardrobeItem.tags.map((tag) => (
-                                    <View 
-                                        key={tag.id} 
-                                        style={[styles.tagChip, { backgroundColor: colors.background, borderColor: colors.border }]}
-                                    >
-                                        <Text style={[styles.tagText, { color: colors.text }]}>
-                                            {tag.name}
-                                        </Text>
-                                        <Text style={[styles.tagCategory, { color: colors.textSecondary }]}>
-                                            ({tag.category})
-                                        </Text>
-                                    </View>
-                                ))}
+                                <View style={styles.buttonRow}>
+                                    {categoryData.values.map((value) => (
+                                        <TouchableOpacity
+                                            key={value}
+                                            disabled={!isEditMode}
+                                            style={[
+                                                styles.attributeButton,
+                                                {
+                                                    backgroundColor: 'transparent',
+                                                    borderColor: colors.border,
+                                                    borderWidth: scaleFontSize(1),
+                                                    opacity: isEditMode ? 1 : 1,
+                                                }
+                                            ]}
+                                        >
+                                            <Text style={[
+                                                styles.attributeButtonText,
+                                                { color: colors.text }
+                                            ]}>
+                                                {value}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
                             </View>
-                        </View>
-                    )}
+                        ))}
 
-                    {/* Notes Display */}
-                    <View style={[styles.sectionCard, { backgroundColor: colors.surface }]}>
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                    {/* Notes Section */}
+                    <View style={styles.attributeSection}>
+                        <Text style={[styles.attributeLabel, { color: colors.text }]}>
                             Notes
                         </Text>
                         {isEditMode ? (
@@ -432,10 +454,10 @@ export default function ItemDetailScreen() {
                                 }]}
                                 value={editedNotes}
                                 onChangeText={setEditedNotes}
-                                placeholder="Add notes about this item (e.g., size, brand, fit, occasion, care instructions, etc.)..."
+                                placeholder="Add notes about this item..."
                                 placeholderTextColor={colors.textSecondary}
                                 multiline
-                                numberOfLines={6}
+                                numberOfLines={4}
                                 textAlignVertical="top"
                             />
                         ) : (
@@ -572,41 +594,90 @@ const styles = StyleSheet.create({
     imageWrapper: {
         paddingHorizontal: scaleFontSize(16),
         paddingTop: scaleFontSize(20),
-        paddingBottom: scaleFontSize(24),
+        paddingBottom: scaleFontSize(32),
     },
     imageContainer: {
         width: '100%',
-        height: scaleFontSize(350),
-        borderRadius: scaleFontSize(16),
+        height: scaleFontSize(400),
+        borderRadius: scaleFontSize(12),
         overflow: 'hidden',
-        backgroundColor: '#000000',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        elevation: 5,
+        backgroundColor: '#FFFFFF',
     },
     productImage: {
         width: '100%',
         height: '100%',
     },
     detailsContainer: {
-        paddingHorizontal: scaleFontSize(16),
+        paddingHorizontal: scaleFontSize(20),
     },
-    nameCard: {
-        borderRadius: scaleFontSize(12),
-        padding: scaleFontSize(20),
-        marginBottom: scaleFontSize(20),
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
+    nameBrandRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: scaleFontSize(28),
+        paddingHorizontal: scaleFontSize(4),
     },
-    itemName: {
+    productName: {
         fontSize: scaleFontSize(24),
         fontFamily: FONTS.nunitoBold,
         lineHeight: scaleFontSize(32),
+        flex: 1,
+    },
+    brandName: {
+        fontSize: scaleFontSize(18),
+        fontFamily: FONTS.nunitoBold,
+        marginLeft: scaleFontSize(12),
+    },
+    attributeSection: {
+        marginBottom: scaleFontSize(24),
+    },
+    attributeLabel: {
+        fontSize: scaleFontSize(13),
+        fontFamily: FONTS.nunitoSemiBold,
+        marginBottom: scaleFontSize(10),
+        color: 'rgba(0, 0, 0, 0.6)',
+    },
+    buttonRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: scaleFontSize(10),
+    },
+    attributeButton: {
+        paddingHorizontal: scaleFontSize(20),
+        paddingVertical: scaleFontSize(12),
+        borderRadius: scaleFontSize(8),
+        borderWidth: scaleFontSize(1),
+        minWidth: scaleFontSize(100),
+    },
+    attributeButtonText: {
+        fontSize: scaleFontSize(14),
+        fontFamily: FONTS.nunitoSemiBold,
+        textAlign: 'center',
+    },
+    colorRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: scaleFontSize(10),
+    },
+    colorSwatch: {
+        width: scaleFontSize(24),
+        height: scaleFontSize(24),
+        borderRadius: scaleFontSize(12),
+        borderWidth: scaleFontSize(1),
+        borderColor: 'rgba(0, 0, 0, 0.1)',
+    },
+    colorText: {
+        fontSize: scaleFontSize(16),
+        fontFamily: FONTS.nunitoSemiBold,
+    },
+    editNameInput: {
+        flex: 1,
+        borderWidth: scaleFontSize(1.5),
+        borderRadius: scaleFontSize(10),
+        paddingHorizontal: scaleFontSize(16),
+        paddingVertical: scaleFontSize(14),
+        fontSize: scaleFontSize(24),
+        fontFamily: FONTS.nunitoBold,
     },
     sectionCard: {
         borderRadius: scaleFontSize(12),

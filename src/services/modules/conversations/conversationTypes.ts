@@ -17,19 +17,40 @@ export interface Conversation {
 export interface Product {
     id: string;
     title: string;
-    price: string;  // e.g., "$53.00"
-    currency: string;  // e.g., "USD"
+    price: string;  // e.g., "$53.00" or "Already owned"
+    currency: string;  // e.g., "USD" or "N/A"
     image_url: string;
-    product_url: string;
+    product_url: string | null;  // null for wardrobe items
     brand: string;
     retailer: string;
     available: boolean;
-    description: string;
+    description: string | null;
+    is_clothing?: boolean;  // Indicates if the item is clothing (for LightX try-on); from API for online products
+}
+
+// Wardrobe item type (similar to Product but from wardrobe)
+export interface WardrobeItem {
+    id: string;
+    title: string;
+    price: string;
+    currency: string;
+    image_url: string;  // relative path, needs base URL concatenation
+    product_url: null;
+    brand: string;
+    retailer: string;
+    available: boolean;
+    description: string | null;
+    source: string;  // "wardrobe"
+    wardrobe_item_id: string;
+    is_clothing?: boolean;  // Indicates if the item is clothing (for LightX generation)
+    tags?: Array<{ name: string; category: string }>;
+    tags_by_category?: Record<string, string[]>;
 }
 
 // Tool output structure
 export interface ToolOutput {
     products?: Product[];
+    wardrobe_items?: WardrobeItem[];
     query?: string;
     request_count?: number;
     total_found?: number;

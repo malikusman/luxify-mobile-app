@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput, KeyboardAvoidingView, Platform, Animated, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, KeyboardAvoidingView, Platform, Animated, FlatList, ActivityIndicator, Dimensions, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSelector, useDispatch, shallowEqual } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import Constants from 'expo-constants';
+import { Audio } from 'expo-av';
 import { RootState } from '@/src/context/store';
-import { setMessageProducts } from '@/src/context/slices/conversationProductsSlice';
+import { Look } from '@/src/types/look';
+import { useConversationLooks } from '@/src/hooks/useConversationLooks';
 import { scaleFontSize } from '@/src/utils/FontSizeUtil';
 import { useThemeColors } from '@/src/theme/Colors';
 import { FONTS } from '@/src/constants/fonts';
@@ -15,14 +18,34 @@ import ArrowLeftIcon from '@/src/components/icons/ArrowLeftIcon';
 import MicIcon from '@/src/components/icons/MicIcon';
 import SendIcon from '@/src/components/icons/SendIcon';
 import ProductDetailView from '@/src/components/home/ProductDetailView';
+import LookDetailView from '@/src/components/home/LookDetailView';
 import { Ionicons } from '@expo/vector-icons';
+import {
+    SuggestionsList,
+    EmptyChatView,
+    VoiceCard,
+    AudioMessagePlayer,
+    LookCard,
+    InputBar,
+    MenuModal,
+    ChangeStylistModal,
+    TryOnModal,
+    MessageBubble,
+} from '@/src/components/AIChat';
 import { useUserProfileSelector, useMyStylist, useConversation, useMessages, useCreateConversation, useSendMessage } from '@/src/services';
+import { useStylists } from '@/src/services/modules/stylists/stylistHooks';
 import { Message, Product, MessageMetadata } from '@/src/services/modules/conversations/conversationTypes';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/src/services/queryClient';
-import { Linking } from 'react-native';
+import { getStylistImage } from '@/src/utils/stylistImageMapper';
+import { useSelectStylist } from '@/src/services/modules/stylists/stylistHooks';
+import { Stylist } from '@/src/services/modules/stylists/stylistTypes';
+import { useStylePhotos } from '@/src/services/modules/stylePhotos/stylePhotosHooks';
+import { performVirtualTryOn } from '@/src/services/virtualTryOn/lightXService';
 
-function getProductsFromMessage(message: Message): Product[] {
+const { width, height } = Dimensions.get('window');
+
+function getLooksFromMessage(message: Message): Look[] {
     if (!message.metadata) {
         return [];
     }
@@ -32,25 +55,165 @@ function getProductsFromMessage(message: Message): Product[] {
     }
     
     try {
-        const products: Product[] = [];
+        const getBackendUrl = (): string => {
+            return Constants.expoConfig?.extra?.backendUrl || '';
+        };
+        const backendUrl = getBackendUrl();
+        
+        const hasWardrobeItems = message.metadata.tool_calls.some(
+            (tc) => tc.tool_name === 'search_wardrobe_items'
+        );
+        const hasOnlineProducts = message.metadata.tool_calls.some(
+            (tc) => tc.tool_name === 'search_products_online'
+        );
+        const hasBoth = hasWardrobeItems && hasOnlineProducts;
+        
+        const wardrobeLooks: Look[] = [];
+        const productArrays: Product[][] = [];
         
         for (const toolCall of message.metadata.tool_calls) {
             if (toolCall.tool_name === 'search_products_online') {
                 if (toolCall.tool_output?.products && Array.isArray(toolCall.tool_output.products)) {
-                    for (const product of toolCall.tool_output.products) {
-                        if (product && product.id && product.title && product.image_url) {
-                            products.push(product);
+                    // Keep is_clothing from API so LightX only runs when is_clothing === true
+                    const validProducts = toolCall.tool_output.products.filter(
+                        (product) => product && product.id && product.title && product.image_url
+                    ) as Product[];
+                    if (validProducts.length > 0) {
+                        productArrays.push(validProducts);
+                    }
+                }
+            } else if (toolCall.tool_name === 'search_wardrobe_items') {
+                if (toolCall.tool_output?.wardrobe_items && Array.isArray(toolCall.tool_output.wardrobe_items)) {
+                    // Only include wardrobe items that are clothing and available (required for LightX try-on)
+                    const filteredWardrobeItems = toolCall.tool_output.wardrobe_items.filter(
+                        (item) => item && item.is_clothing === true && item.available === true
+                    );
+                    
+                    for (const wardrobeItem of filteredWardrobeItems) {
+                        if (wardrobeItem && wardrobeItem.id && wardrobeItem.title && wardrobeItem.image_url) {
+                            const fullImageUrl = wardrobeItem.image_url.startsWith('http://') || wardrobeItem.image_url.startsWith('https://')
+                                ? wardrobeItem.image_url
+                                : `${backendUrl}${wardrobeItem.image_url.startsWith('/') ? '' : '/'}${wardrobeItem.image_url}`;
+                            
+                            const product: Product = {
+                                id: wardrobeItem.id,
+                                title: wardrobeItem.title,
+                                price: wardrobeItem.price || 'Already owned',
+                                currency: wardrobeItem.currency || 'N/A',
+                                image_url: fullImageUrl,
+                                product_url: null,
+                                brand: wardrobeItem.brand || 'Your Wardrobe',
+                                retailer: wardrobeItem.retailer || 'Your Wardrobe',
+                                available: wardrobeItem.available ?? true,
+                                description: wardrobeItem.description || null,
+                                is_clothing: wardrobeItem.is_clothing === true,
+                            };
+                            
+                            wardrobeLooks.push({
+                                products: [product],
+                                lightXImageUrl: undefined,
+                            });
                         }
                     }
                 }
             }
         }
         
-        return products;
+        if (hasBoth && wardrobeLooks.length > 0 && productArrays.length > 0) {
+            const minLength = Math.min(...productArrays.map(arr => arr.length));
+            
+            if (minLength > 0) {
+                const productGroups: Product[][] = [];
+                const groupTitles: string[] = [];
+                for (let i = 0; i < minLength; i++) {
+                    const groupedProducts: Product[] = [];
+                    for (const productArray of productArrays) {
+                        const p = productArray[i];
+                        if (p && p.available) {
+                            groupedProducts.push(p);
+                        }
+                    }
+                    if (groupedProducts.length > 0) {
+                        productGroups.push(groupedProducts);
+                        groupTitles.push(`Option ${productGroups.length}`);
+                    }
+                }
+
+                wardrobeLooks.forEach((wardrobeLook) => {
+                    wardrobeLook.productGroups = productGroups;
+                    wardrobeLook.groupTitles = groupTitles;
+                });
+            }
+            
+            return wardrobeLooks;
+        }
+        
+        if (!hasWardrobeItems && productArrays.length > 0) {
+            const productLooks: Look[] = [];
+            const minLength = Math.min(...productArrays.map(arr => arr.length));
+            
+            if (minLength > 0) {
+                const maxLooks = Math.min(3, minLength);
+                for (let i = 0; i < maxLooks; i++) {
+                    const lookProducts: Product[] = [];
+                    for (const productArray of productArrays) {
+                        if (productArray[i]) {
+                            lookProducts.push(productArray[i]);
+                        }
+                    }
+                    if (lookProducts.length > 0) {
+                        productLooks.push({
+                            products: lookProducts,
+                            lightXImageUrl: undefined,
+                        });
+                    }
+                }
+            }
+            return productLooks;
+        }
+        
+        return wardrobeLooks;
     } catch (error) {
-        console.error('Error extracting products from message:', error, message);
         return [];
     }
+}
+
+/** Returns set of look indices that are try-on eligible (is_clothing === true). Used to hide try-on section when none are clothing. */
+function getLookIndicesWithTryOn(metadata: MessageMetadata | undefined, looks: Look[]): Set<number> {
+    const indices = new Set<number>();
+    if (!metadata?.tool_calls || looks.length === 0) return indices;
+    for (let lookIndex = 0; lookIndex < looks.length; lookIndex++) {
+        const look = looks[lookIndex];
+        const firstProduct = look.products[0];
+        if (!firstProduct?.image_url) continue;
+        const isWardrobeItem = firstProduct.product_url === null;
+        let isClothing = false;
+        if (isWardrobeItem) {
+            for (const tc of metadata.tool_calls) {
+                if (tc.tool_name === 'search_wardrobe_items' && tc.tool_output?.wardrobe_items) {
+                    const item = tc.tool_output.wardrobe_items.find((w) => w.id === firstProduct.id);
+                    if (item) {
+                        isClothing = item.is_clothing === true;
+                        break;
+                    }
+                }
+            }
+            if (!isClothing && firstProduct.is_clothing === true) isClothing = true;
+        } else {
+            for (const tc of metadata.tool_calls) {
+                if (tc.tool_name === 'search_products_online' && tc.tool_output?.products) {
+                    const apiProduct = tc.tool_output.products.find((p) => p && p.id === firstProduct.id) as { is_clothing?: boolean } | undefined;
+                    if (apiProduct) {
+                        isClothing = apiProduct.is_clothing === true;
+                        break;
+                    }
+                }
+            }
+            if (!isClothing && firstProduct.is_clothing === true) isClothing = true;
+        }
+        if (isClothing) indices.add(lookIndex);
+    }
+    return indices;
 }
 
 export default function AIChatScreen() {
@@ -64,20 +227,59 @@ export default function AIChatScreen() {
     const firstName = userProfile?.first_name || data.firstName || DEFAULTS.FIRST_NAME;
     
     const { data: stylist, isLoading: isLoadingStylist } = useMyStylist();
+    const { data: allStylists = [] } = useStylists();
+    
+    const stylistIndexMap = React.useMemo(() => {
+        const map = new Map<string, number>();
+        const sortedStylists = [...allStylists].sort((a, b) => a.id.localeCompare(b.id));
+        sortedStylists.forEach((s, index) => {
+            map.set(s.id, index);
+        });
+        return map;
+    }, [allStylists]);
     
     const [conversationId, setConversationId] = useState<string | null>(params.conversationId || null);
-    
-    const emptyProducts = React.useRef<Record<string, Product[]>>({});
-    
-    const cachedProducts = useSelector((state: RootState) => {
-        if (!conversationId) return emptyProducts.current;
-        const products = state.conversationProducts[conversationId] || emptyProducts.current;
-        console.log('Redux cachedProducts for conversation:', conversationId, products);
-        return products;
-    }, shallowEqual);
+
+    const userId = useSelector((state: RootState) => state.auth?.user?.id) ?? null;
+    const conversationLooks = useConversationLooks(userId, conversationId);
+    const { looksByMessageId, getLooksForMessage: getCachedLooks, setLooks: setLooksForMessage, hydrateForMessages, updateLookLightX, updateLookLightXError } = conversationLooks;
+
     const [messageText, setMessageText] = useState('');
-    const [isMicActive, setIsMicActive] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<any>(null);
+    
+    const [recording, setRecording] = useState<Audio.Recording | null>(null);
+    const [isRecording, setIsRecording] = useState(false);
+    const [recordedAudioUri, setRecordedAudioUri] = useState<string | null>(null);
+    const [sound, setSound] = useState<Audio.Sound | null>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [recordingDuration, setRecordingDuration] = useState(0);
+    const [playbackPosition, setPlaybackPosition] = useState(0);
+    const MAX_RECORDING_DURATION = 60;
+    const recordingDurationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const playbackPositionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const recordingRef = useRef<Audio.Recording | null>(null);
+    const recordingDurationRef = useRef<number>(0);
+    const soundRef = useRef<Audio.Sound | null>(null);
+    const messageSoundsRef = useRef<Map<string, Audio.Sound>>(new Map());
+    
+    const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
+    const [messageSounds, setMessageSounds] = useState<Map<string, Audio.Sound>>(new Map());
+    const [messagePlaybackPositions, setMessagePlaybackPositions] = useState<Map<string, number>>(new Map());
+    const [messageDurations, setMessageDurations] = useState<Map<string, number>>(new Map());
+    const messagePlaybackIntervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
+    const [showMenuModal, setShowMenuModal] = useState(false);
+    const [showChangeStylistModal, setShowChangeStylistModal] = useState(false);
+    const [selectedStylistForChange, setSelectedStylistForChange] = useState<Stylist | null>(null);
+    const selectStylistMutation = useSelectStylist();
+    
+    const { data: stylePhotos = [] } = useStylePhotos();
+    const [tryOnResult, setTryOnResult] = useState<{ productId: string; resultUrl: string } | null>(null);
+    const [showTryOnModal, setShowTryOnModal] = useState(false);
+    
+    const [generatingLightXImages, setGeneratingLightXImages] = useState<Set<string>>(new Set());
+    const processingMessagesRef = useRef<Set<string>>(new Set());
+    
+    const [selectedLook, setSelectedLook] = useState<{ messageId: string; lookIndex: number; look: Look } | null>(null);
     
     const { data: conversation, isLoading: isLoadingConversation } = useConversation(conversationId);
     
@@ -101,48 +303,296 @@ export default function AIChatScreen() {
     
     const { data: messages = [], isLoading: isLoadingMessages } = useMessages(
         conversationId, 
-        { enabled: !!conversationId && !isMicActive }
+        { enabled: !!conversationId }
     );
+
+    const durationLoadRequestedRef = useRef<Set<string>>(new Set());
+
+    useEffect(() => {
+        if (messages.length > 0) {
+            console.log('messages response', JSON.stringify(messages, null, 2));
+        }
+    }, [messages]);
+
+    useEffect(() => {
+        durationLoadRequestedRef.current.clear();
+    }, [conversationId]);
     
     const queryClient = useQueryClient();
-    const scrollViewRef = useRef<ScrollView>(null);
-    const messagesEndRef = useRef<View>(null);
-    const hasScrolledToBottom = useRef(false);
-    const isInitialLoad = useRef(true);
     const messagesWithMetadataRef = useRef<Map<string, MessageMetadata>>(new Map());
     const processedMessagesRef = useRef<Set<string>>(new Set());
     const messagesIdsRef = useRef<string>('');
 
-    useEffect(() => {
-        if (!conversationId || messages.length === 0) return;
-        
-        const currentMessagesIds = messages.map(m => m.id).join(',');
-        if (currentMessagesIds === messagesIdsRef.current) return;
-        messagesIdsRef.current = currentMessagesIds;
-        
-        messages.forEach(msg => {
-            const messageKey = `${conversationId}-${msg.id}`;
-            if (processedMessagesRef.current.has(messageKey)) return;
-            
-            if (msg.metadata && msg.metadata.tool_calls && msg.metadata.tool_calls.length > 0) {
-                messagesWithMetadataRef.current.set(msg.id, msg.metadata);
+    const generateLightXImagesForLooks = React.useCallback(
+        async (
+            convId: string,
+            msgId: string,
+            looks: Look[],
+            getCurrentCachedLooks: () => Look[],
+            onSetLightXImage: (messageId: string, lookIndex: number, lightXImageUrl: string) => void,
+            onSetLightXError: (messageId: string, lookIndex: number, error: string) => void
+        ) => {
+            const messageKey = `${convId}-${msgId}`;
+            if (processingMessagesRef.current.has(messageKey)) {
+                return;
+            }
+            processingMessagesRef.current.add(messageKey);
+
+            try {
+                const personImageUrl = getPersonImageUrl();
+                if (!personImageUrl) {
+                    return;
+                }
+
+                await new Promise((resolve) => setTimeout(resolve, 50));
+                let currentCachedLooks = getCurrentCachedLooks();
+
+            for (let lookIndex = 0; lookIndex < looks.length; lookIndex++) {
+                const look = looks[lookIndex];
                 
-                const products = getProductsFromMessage(msg);
-                if (products.length > 0) {
-                    const existingCached = cachedProducts[msg.id];
-                    if (!existingCached || existingCached.length === 0) {
-                        dispatch(setMessageProducts({
-                            conversationId,
-                            messageId: msg.id,
-                            products,
-                        }));
+                currentCachedLooks = getCurrentCachedLooks();
+                
+                const firstProductId = look.products[0]?.id;
+                const cachedLookIndex = firstProductId 
+                    ? currentCachedLooks.findIndex(cached => 
+                        cached.products[0]?.id === firstProductId
+                    )
+                    : lookIndex;
+                
+                const cachedLook = cachedLookIndex >= 0 ? currentCachedLooks[cachedLookIndex] : null;
+                const actualLookIndex = cachedLookIndex >= 0 ? cachedLookIndex : lookIndex;
+                
+                if (cachedLook?.lightXImageUrl) {
+                    continue;
+                }
+                
+                if (cachedLook?.lightXError || look.lightXError) {
+                    continue;
+                }
+                
+                if (look.lightXImageUrl) {
+                    continue;
+                }
+
+                if (look.products.length === 0) {
+                    continue;
+                }
+
+                const firstProduct = look.products[0];
+                if (!firstProduct.image_url) {
+                    continue;
+                }
+
+                // Only generate LightX try-on when is_clothing is true (for both wardrobe and online products)
+                const isWardrobeItem = firstProduct.product_url === null;
+                const messageMetadata = messagesWithMetadataRef.current.get(msgId);
+                let isClothing = false;
+
+                if (isWardrobeItem) {
+                    if (messageMetadata?.tool_calls) {
+                        for (const toolCall of messageMetadata.tool_calls) {
+                            if (toolCall.tool_name === 'search_wardrobe_items' && toolCall.tool_output?.wardrobe_items) {
+                                const wardrobeItem = toolCall.tool_output.wardrobe_items.find(
+                                    (item) => item.id === firstProduct.id
+                                );
+                                if (wardrobeItem) {
+                                    isClothing = wardrobeItem.is_clothing === true;
+                                    break;
+                                }
+                            }
+                        }
                     }
+                    if (!isClothing && firstProduct.is_clothing === true) isClothing = true;
+                } else {
+                    // Online product: resolve is_clothing from metadata (source of truth) so we never generate when false
+                    if (messageMetadata?.tool_calls) {
+                        for (const toolCall of messageMetadata.tool_calls) {
+                            if (toolCall.tool_name === 'search_products_online' && toolCall.tool_output?.products) {
+                                const apiProduct = toolCall.tool_output.products.find(
+                                    (p) => p && p.id === firstProduct.id
+                                ) as { is_clothing?: boolean } | undefined;
+                                if (apiProduct) {
+                                    isClothing = apiProduct.is_clothing === true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (!isClothing && firstProduct.is_clothing === true) isClothing = true;
+                }
+
+                if (!isClothing) {
+                    continue; // Skip LightX – not clothing or could not confirm
+                }
+
+                const lookKey = `${msgId}-${lookIndex}`;
+                setGeneratingLightXImages(prev => new Set(prev).add(lookKey));
+
+                try {
+                    const result = await performVirtualTryOn(personImageUrl, firstProduct.image_url);
+                    
+                    if (result.success && result.outputImageUrl) {
+                        currentCachedLooks = getCurrentCachedLooks();
+                        
+                        const finalCachedLookIndex = firstProductId 
+                            ? currentCachedLooks.findIndex(cached => 
+                                cached.products[0]?.id === firstProductId
+                            )
+                            : lookIndex;
+                        
+                        const finalLookIndex = finalCachedLookIndex >= 0 ? finalCachedLookIndex : lookIndex;
+                        
+                        if (finalLookIndex < currentCachedLooks.length) {
+                            onSetLightXImage(msgId, finalLookIndex, result.outputImageUrl);
+                        } else {
+                            onSetLightXImage(msgId, lookIndex, result.outputImageUrl);
+                        }
+                    } else {
+                        const errorMessage = result.error || 'Failed to generate image';
+                        currentCachedLooks = getCurrentCachedLooks();
+                        const finalCachedLookIndex = firstProductId 
+                            ? currentCachedLooks.findIndex(cached => 
+                                cached.products[0]?.id === firstProductId
+                            )
+                            : lookIndex;
+                        const finalLookIndex = finalCachedLookIndex >= 0 ? finalCachedLookIndex : lookIndex;
+                        onSetLightXError(msgId, finalLookIndex < currentCachedLooks.length ? finalLookIndex : lookIndex, errorMessage);
+                    }
+                } catch (error: any) {
+                    const errorMessage = error?.message || error?.toString() || 'An unexpected error occurred';
+                    currentCachedLooks = getCurrentCachedLooks();
+                    const finalCachedLookIndex = firstProductId 
+                        ? currentCachedLooks.findIndex(cached => 
+                            cached.products[0]?.id === firstProductId
+                        )
+                        : lookIndex;
+                    const finalLookIndex = finalCachedLookIndex >= 0 ? finalCachedLookIndex : lookIndex;
+                    onSetLightXError(msgId, finalLookIndex < currentCachedLooks.length ? finalLookIndex : lookIndex, errorMessage);
+                } finally {
+                    setGeneratingLightXImages(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(lookKey);
+                        return newSet;
+                    });
+                    await new Promise(resolve => setTimeout(resolve, 100));
                 }
             }
-            
-            processedMessagesRef.current.add(messageKey);
-        });
-    }, [messages.length, conversationId, dispatch]);
+        } finally {
+            processingMessagesRef.current.delete(messageKey);
+        }
+    }, [stylePhotos]);
+
+    useEffect(() => {
+        if (!userId || !conversationId || messages.length === 0) return;
+
+        const currentMessagesIds = messages.map((m) => m.id).join(',');
+        if (currentMessagesIds === messagesIdsRef.current) return;
+        messagesIdsRef.current = currentMessagesIds;
+
+        const messageIdsWithLooks = messages
+            .filter((m) => m.metadata?.tool_calls?.length)
+            .map((m) => m.id);
+        if (messageIdsWithLooks.length === 0) return;
+
+        let cancelled = false;
+        (async () => {
+            const hydrated = await hydrateForMessages(messageIdsWithLooks);
+            if (cancelled) return;
+
+            messages.forEach((msg) => {
+                const messageKey = `${conversationId}-${msg.id}`;
+                if (processedMessagesRef.current.has(messageKey)) return;
+
+                if (msg.metadata && msg.metadata.tool_calls && msg.metadata.tool_calls.length > 0) {
+                    messagesWithMetadataRef.current.set(msg.id, msg.metadata);
+
+                    const looks = getLooksFromMessage(msg);
+                    if (looks.length === 0) return;
+
+                    const existingCached = hydrated[msg.id] ?? getCachedLooks(msg.id);
+
+                    if (!existingCached || existingCached.length === 0) {
+                        setLooksForMessage(msg.id, looks).then(() => {
+                            if (cancelled) return;
+                            setTimeout(() => {
+                                generateLightXImagesForLooks(
+                                    conversationId,
+                                    msg.id,
+                                    looks,
+                                    () => getCachedLooks(msg.id) ?? [],
+                                    updateLookLightX,
+                                    updateLookLightXError
+                                );
+                            }, 100);
+                        });
+                    } else {
+                        const looksNeedingGeneration: Look[] = [];
+                        const mergedLooks: Look[] = [];
+
+                        for (let index = 0; index < looks.length; index++) {
+                            const newLook = looks[index];
+                            const cachedLook = existingCached[index];
+
+                            if (cachedLook) {
+                                if (cachedLook.lightXImageUrl) {
+                                    const productsMatch =
+                                        cachedLook.products.length === newLook.products.length &&
+                                        cachedLook.products.every((p, i) => p.id === newLook.products[i]?.id);
+                                    if (productsMatch) {
+                                        mergedLooks.push(cachedLook);
+                                        continue;
+                                    }
+                                }
+                                const productsMatch =
+                                    cachedLook.products.length === newLook.products.length &&
+                                    cachedLook.products.every((p, i) => p.id === newLook.products[i]?.id);
+                                if (productsMatch) {
+                                    looksNeedingGeneration.push(cachedLook);
+                                    mergedLooks.push(cachedLook);
+                                    continue;
+                                }
+                            }
+                            looksNeedingGeneration.push(newLook);
+                            mergedLooks.push(newLook);
+                        }
+
+                        const needsUpdate = mergedLooks.length !== existingCached.length ||
+                            mergedLooks.some((l, i) => l !== existingCached[i]);
+                        if (needsUpdate) {
+                            setLooksForMessage(msg.id, mergedLooks).then(() => {
+                                if (cancelled) return;
+                                if (looksNeedingGeneration.length > 0) {
+                                    generateLightXImagesForLooks(
+                                        conversationId,
+                                        msg.id,
+                                        looksNeedingGeneration,
+                                        () => getCachedLooks(msg.id) ?? [],
+                                        updateLookLightX,
+                                        updateLookLightXError
+                                    );
+                                }
+                            });
+                        } else if (looksNeedingGeneration.length > 0) {
+                            generateLightXImagesForLooks(
+                                conversationId,
+                                msg.id,
+                                looksNeedingGeneration,
+                                () => getCachedLooks(msg.id) ?? [],
+                                updateLookLightX,
+                                updateLookLightXError
+                            );
+                        }
+                    }
+                }
+
+                processedMessagesRef.current.add(messageKey);
+            });
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [messages.length, conversationId, userId, hydrateForMessages, getCachedLooks, setLooksForMessage, generateLightXImagesForLooks, updateLookLightX, updateLookLightXError]);
 
     useEffect(() => {
         if (!conversationId || messages.length === 0) return;
@@ -171,8 +621,6 @@ export default function AIChatScreen() {
     }, [messages, conversationId, queryClient]);
 
     useEffect(() => {
-        isInitialLoad.current = true;
-        hasScrolledToBottom.current = false;
         processedMessagesRef.current.clear();
         messagesWithMetadataRef.current.clear();
         messagesIdsRef.current = '';
@@ -188,7 +636,6 @@ export default function AIChatScreen() {
         ) {
             const stylistId = stylist.id;
             if (!stylistId) {
-                console.error('Stylist ID is missing:', stylist);
                 return;
             }
             setIsCreatingConversation(true);
@@ -197,29 +644,13 @@ export default function AIChatScreen() {
                     setConversationId(newConversation.id);
                     setIsCreatingConversation(false);
                 },
-                onError: (error) => {
-                    console.error('Failed to create conversation:', error);
+                onError: () => {
                     setIsCreatingConversation(false);
                 },
             });
         }
     }, [stylist?.id, conversationId, isLoadingStylist, createConversationMutation.isPending, isCreatingConversation]);
 
-    useEffect(() => {
-        if (messages.length > 0 && scrollViewRef.current) {
-            if (isInitialLoad.current) {
-                setTimeout(() => {
-                    scrollViewRef.current?.scrollToEnd({ animated: false });
-                    isInitialLoad.current = false;
-                    hasScrolledToBottom.current = true;
-                }, 100);
-            } else if (hasScrolledToBottom.current) {
-                setTimeout(() => {
-                    scrollViewRef.current?.scrollToEnd({ animated: true });
-                }, 100);
-            }
-        }
-    }, [messages.length]);
 
 
     const outerPulse = useRef(new Animated.Value(1)).current;
@@ -262,29 +693,668 @@ export default function AIChatScreen() {
 
     const handleBack = () => {
         router.dismissAll();
-                        router.replace('/home/(tabs)/' as any);    
+        router.replace('/home/(tabs)/' as any);    
     };
 
-    const handleMicToggle = () => {
-        setIsMicActive(true);
+    const handleMenuPress = () => {
+        setShowMenuModal(true);
     };
 
-    const handleCloseMic = () => {
-        setIsMicActive(false);
+    const handleCloseMenuModal = () => {
+        setShowMenuModal(false);
+    };
+
+    const handleViewChatHistory = () => {
+        setShowMenuModal(false);
+        router.push('/home/(tabs)/chat' as any);
+    };
+
+    const handleChangeStylistPress = () => {
+        setShowMenuModal(false);
+        setShowChangeStylistModal(true);
+    };
+
+    const handleCloseChangeStylistModal = () => {
+        setShowChangeStylistModal(false);
+        setSelectedStylistForChange(null);
+    };
+
+    const handleStylistSelection = (stylist: Stylist) => {
+        if (stylist.id !== displayStylist?.id) {
+            setSelectedStylistForChange(stylist);
+            
+            selectStylistMutation.mutate(stylist.id, {
+                onSuccess: () => {
+                    createConversationMutation.mutate(stylist.id, {
+                        onSuccess: (newConversation) => {
+                            setConversationId(newConversation.id);
+                            setShowChangeStylistModal(false);
+                            setSelectedStylistForChange(null);
+                            queryClient.invalidateQueries({ queryKey: queryKeys.stylists.myStylist() });
+                            queryClient.invalidateQueries({ queryKey: queryKeys.conversations.list() });
+                        },
+                        onError: () => {},
+                    });
+                },
+                onError: () => {},
+            });
+        } else {
+            setShowChangeStylistModal(false);
+            setSelectedStylistForChange(null);
+        }
+    };
+
+    useEffect(() => {
+        (async () => {
+            try {
+                await Audio.requestPermissionsAsync();
+                await Audio.setAudioModeAsync({
+                    allowsRecordingIOS: true,
+                    playsInSilentModeIOS: true,
+                    staysActiveInBackground: false,
+                    shouldDuckAndroid: true,
+                    playThroughEarpieceAndroid: false,
+                });
+            } catch (_err) {
+            }
+        })();
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            const currentSound = soundRef?.current;
+            if (currentSound) {
+                currentSound.unloadAsync().catch(() => {});
+            }
+            if (recordingRef.current) {
+                recordingRef.current.stopAndUnloadAsync().catch(() => {});
+            }
+            if (recordingDurationIntervalRef.current) {
+                clearInterval(recordingDurationIntervalRef.current);
+            }
+            if (playbackPositionIntervalRef.current) {
+                clearInterval(playbackPositionIntervalRef.current);
+            }
+            if (messageSoundsRef?.current) {
+                messageSoundsRef.current.forEach((messageSound) => {
+                    messageSound.unloadAsync().catch(() => {});
+                });
+            }
+            messagePlaybackIntervalsRef.current.forEach((interval) => {
+                clearInterval(interval);
+            });
+        };
+    }, []);
+
+    const startRecording = async () => {
+        try {
+            try {
+                const { status } = await Audio.requestPermissionsAsync();
+                if (status !== 'granted') {
+                    Alert.alert('Permission Required', 'Microphone permission is required to record audio.');
+                    return;
+                }
+                
+                await Audio.setAudioModeAsync({
+                    allowsRecordingIOS: true,
+                    playsInSilentModeIOS: true,
+                    staysActiveInBackground: false,
+                    shouldDuckAndroid: true,
+                    playThroughEarpieceAndroid: false,
+                });
+                
+                await new Promise(resolve => setTimeout(resolve, 100));
+            } catch (audioModeError) {
+                Alert.alert('Error', 'Failed to configure audio for recording. Please try again.');
+                return;
+            }
+
+            const currentRecording = recording || recordingRef.current;
+            if (currentRecording) {
+                try {
+                    await currentRecording.stopAndUnloadAsync();
+                } catch (_err: any) {
+                }
+            }
+
+            if (sound) {
+                try {
+                    await sound.unloadAsync();
+                    await new Promise(resolve => setTimeout(resolve, 150));
+                } catch (_err) {
+                }
+                setSound(null);
+                soundRef.current = null;
+                setIsPlaying(false);
+            }
+            
+            try {
+                await Audio.setAudioModeAsync({
+                    allowsRecordingIOS: true,
+                    playsInSilentModeIOS: true,
+                    staysActiveInBackground: false,
+                    shouldDuckAndroid: true,
+                    playThroughEarpieceAndroid: false,
+                });
+            } catch (_audioModeError2) {
+            }
+
+            const { recording: newRecording } = await Audio.Recording.createAsync(
+                Audio.RecordingOptionsPresets.HIGH_QUALITY
+            );
+            
+            const initialStatus = await newRecording.getStatusAsync();
+            
+            if (!initialStatus.canRecord) {
+                try {
+                    await newRecording.stopAndUnloadAsync();
+                } catch (_unloadErr: any) {
+                }
+                await Audio.setAudioModeAsync({
+                    allowsRecordingIOS: true,
+                    playsInSilentModeIOS: true,
+                    staysActiveInBackground: false,
+                    shouldDuckAndroid: true,
+                    playThroughEarpieceAndroid: false,
+                });
+                Alert.alert('Error', 'Cannot start recording. Please ensure microphone permissions are granted and no other app is using the microphone.');
+                return;
+            }
+            
+            if (initialStatus.isDoneRecording) {
+                try {
+                    await newRecording.stopAndUnloadAsync();
+                } catch (_unloadErr: any) {
+                }
+                Alert.alert('Error', 'Failed to start recording. The recording stopped immediately. Please check your microphone permissions and try again.');
+                return;
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 300));
+            const statusAfterDelay = await newRecording.getStatusAsync();
+            
+            if (statusAfterDelay.isDoneRecording || !statusAfterDelay.isRecording) {
+                try {
+                    await newRecording.stopAndUnloadAsync();
+                } catch (_unloadErr: any) {
+                }
+                Alert.alert('Error', 'Failed to start recording. Please check your microphone permissions and ensure no other app is using the microphone.');
+                return;
+            }
+            
+            if (!statusAfterDelay.canRecord) {
+                try {
+                    await newRecording.stopAndUnloadAsync();
+                } catch (_unloadErr: any) {
+                }
+                Alert.alert('Error', 'Recording lost ability to record. Please try again.');
+                return;
+            }
+            
+            setRecording(newRecording);
+            recordingRef.current = newRecording;
+            setIsRecording(true);
+            setRecordedAudioUri(null);
+            
+            if (recordingDurationIntervalRef.current) {
+                clearInterval(recordingDurationIntervalRef.current);
+                recordingDurationIntervalRef.current = null;
+            }
+            
+            recordingDurationRef.current = 0;
+            setRecordingDuration(0);
+            setPlaybackPosition(0);
+
+            recordingDurationIntervalRef.current = setInterval(async () => {
+                if (recordingRef.current) {
+                    try {
+                        const status = await recordingRef.current.getStatusAsync();
+                        
+                        if (status.isDoneRecording || !status.isRecording) {
+                            if (recordingDurationIntervalRef.current) {
+                                clearInterval(recordingDurationIntervalRef.current);
+                                recordingDurationIntervalRef.current = null;
+                            }
+                            
+                            const actualDuration = status.durationMillis 
+                                ? Math.floor(status.durationMillis / 1000) 
+                                : recordingDurationRef.current;
+                            
+                            const uri = recordingRef.current.getURI();
+                            setRecording(null);
+                            recordingRef.current = null;
+                            setIsRecording(false);
+                            setRecordingDuration(actualDuration);
+                            recordingDurationRef.current = actualDuration;
+                            
+                            if (uri) {
+                                setRecordedAudioUri(uri);
+                            }
+                            return;
+                        }
+                        
+                        if (status.durationMillis) {
+                            const actualDuration = Math.floor(status.durationMillis / 1000);
+                            if (actualDuration > recordingDurationRef.current) {
+                                recordingDurationRef.current = actualDuration;
+                                setRecordingDuration(actualDuration);
+                            }
+                        } else {
+                            const currentDuration = recordingDurationRef.current + 1;
+                            recordingDurationRef.current = currentDuration;
+                            setRecordingDuration(currentDuration);
+                        }
+                        
+                        const currentDuration = recordingDurationRef.current;
+                        if (currentDuration >= MAX_RECORDING_DURATION) {
+                            if (recordingDurationIntervalRef.current) {
+                                clearInterval(recordingDurationIntervalRef.current);
+                                recordingDurationIntervalRef.current = null;
+                            }
+                            if (recordingRef.current) {
+                                const finalDuration = MAX_RECORDING_DURATION;
+                                const recordingToStop = recordingRef.current;
+                                
+                                recordingToStop.stopAndUnloadAsync()
+                                    .then(() => {
+                                        const uri = recordingToStop.getURI();
+                                        setRecording(null);
+                                        recordingRef.current = null;
+                                        setIsRecording(false);
+                                        setRecordingDuration(finalDuration);
+                                        recordingDurationRef.current = finalDuration;
+                                        if (uri) {
+                                            setRecordedAudioUri(uri);
+                                        }
+                                    })
+                                    .catch(() => {
+                                        setRecording(null);
+                                        recordingRef.current = null;
+                                        setIsRecording(false);
+                                    });
+                            }
+                        }
+                    } catch (_statusErr) {
+                        const currentDuration = recordingDurationRef.current + 1;
+                        recordingDurationRef.current = currentDuration;
+                        setRecordingDuration(currentDuration);
+                    }
+                }
+            }, 1000);
+        } catch (err) {
+            Alert.alert('Error', 'Failed to start recording. Please check your microphone permissions.');
+        }
+    };
+
+    const stopRecording = async () => {
+        try {
+            const currentRecording = recording || recordingRef.current;
+            if (!currentRecording) {
+                return;
+            }
+
+            if (recordingDurationIntervalRef.current) {
+                clearInterval(recordingDurationIntervalRef.current);
+                recordingDurationIntervalRef.current = null;
+            }
+
+            let finalDuration = recordingDurationRef.current;
+            let uri: string | null = null;
+
+            try {
+                const status = await currentRecording.getStatusAsync();
+
+                if (status.durationMillis) {
+                    const actualDuration = Math.floor(status.durationMillis / 1000);
+                    if (actualDuration > 0) {
+                        finalDuration = actualDuration;
+                        recordingDurationRef.current = actualDuration;
+                    }
+                }
+
+                try {
+                    uri = currentRecording.getURI();
+                } catch (_uriErr) {
+                }
+
+                if (status.isRecording) {
+                    try {
+                        await currentRecording.stopAndUnloadAsync();
+                    } catch (_stopErr: any) {
+                    }
+                }
+                
+                if (!uri) {
+                    try {
+                        uri = currentRecording.getURI();
+                    } catch (_uriErr2) {
+                    }
+                }
+            } catch (_err: any) {
+                if (!uri) {
+                    try {
+                        uri = currentRecording.getURI();
+                    } catch (_uriErr3) {
+                    }
+                }
+            }
+            
+            setRecording(null);
+            recordingRef.current = null;
+            setIsRecording(false);
+            
+            if (uri) {
+                setRecordedAudioUri(uri);
+                setRecordingDuration(finalDuration);
+                recordingDurationRef.current = finalDuration;
+            } else if (finalDuration > 0) {
+                setRecordingDuration(finalDuration);
+                recordingDurationRef.current = finalDuration;
+            }
+        } catch (_err: any) {
+            setRecording(null);
+            recordingRef.current = null;
+            setIsRecording(false);
+        }
+    };
+
+    const playRecordedAudio = async () => {
+        if (!recordedAudioUri) return;
+
+        try {
+            if (sound) {
+                await sound.unloadAsync();
+            }
+
+            try {
+                await Audio.setAudioModeAsync({
+                    allowsRecordingIOS: false,
+                    playsInSilentModeIOS: true,
+                    staysActiveInBackground: false,
+                    shouldDuckAndroid: true,
+                    playThroughEarpieceAndroid: false,
+                });
+            } catch (_audioModeError) {
+            }
+
+            const { sound: newSound } = await Audio.Sound.createAsync(
+                { uri: recordedAudioUri },
+                { 
+                    shouldPlay: true,
+                    volume: 1.0,
+                }
+            );
+            
+            try {
+                await Audio.setAudioModeAsync({
+                    allowsRecordingIOS: false,
+                    playsInSilentModeIOS: true,
+                    staysActiveInBackground: false,
+                    shouldDuckAndroid: true,
+                    playThroughEarpieceAndroid: false,
+                });
+            } catch (_audioModeError2) {
+            }
+
+            setSound(newSound);
+            soundRef.current = newSound;
+            setIsPlaying(true);
+            setPlaybackPosition(0);
+
+            if (playbackPositionIntervalRef.current) {
+                clearInterval(playbackPositionIntervalRef.current);
+            }
+
+            playbackPositionIntervalRef.current = setInterval(() => {
+                setPlaybackPosition(prev => {
+                    const newPosition = prev + 1;
+                    if (newPosition >= recordingDuration) {
+                        if (playbackPositionIntervalRef.current) {
+                            clearInterval(playbackPositionIntervalRef.current);
+                            playbackPositionIntervalRef.current = null;
+                        }
+                        return recordingDuration;
+                    }
+                    return newPosition;
+                });
+            }, 1000);
+
+            newSound.setOnPlaybackStatusUpdate(async (status) => {
+                if (status.isLoaded) {
+                    if (status.didJustFinish) {
+                        setIsPlaying(false);
+                        setPlaybackPosition(0);
+                        if (playbackPositionIntervalRef.current) {
+                            clearInterval(playbackPositionIntervalRef.current);
+                            playbackPositionIntervalRef.current = null;
+                        }
+                        await newSound.unloadAsync();
+                        setSound(null);
+                        soundRef.current = null;
+                        
+                        try {
+                            await Audio.setAudioModeAsync({
+                                allowsRecordingIOS: true,
+                                playsInSilentModeIOS: true,
+                                staysActiveInBackground: false,
+                                shouldDuckAndroid: true,
+                                playThroughEarpieceAndroid: false,
+                            });
+                        } catch (_audioModeError) {
+                        }
+                    }
+                }
+            });
+        } catch (err) {
+            Alert.alert('Error', 'Failed to play audio.');
+        }
+    };
+
+    const stopPlayback = async () => {
+        if (sound) {
+            await sound.stopAsync();
+            await sound.unloadAsync();
+            setSound(null);
+            soundRef.current = null;
+            setIsPlaying(false);
+            setPlaybackPosition(0);
+        }
+        if (playbackPositionIntervalRef.current) {
+            clearInterval(playbackPositionIntervalRef.current);
+            playbackPositionIntervalRef.current = null;
+        }
+        
+        try {
+            await Audio.setAudioModeAsync({
+                allowsRecordingIOS: true,
+                playsInSilentModeIOS: true,
+                staysActiveInBackground: false,
+                shouldDuckAndroid: true,
+                playThroughEarpieceAndroid: false,
+            });
+        } catch (_audioModeError) {
+        }
+    };
+
+    const formatDuration = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const handleMicToggle = async () => {
+        if (isRecording) {
+            await stopRecording();
+        } else {
+            await startRecording();
+        }
+    };
+
+    const handleCancelRecording = async () => {
+        if (isRecording) {
+            await stopRecording();
+        }
+        setRecordedAudioUri(null);
+        setRecordingDuration(0);
+        recordingDurationRef.current = 0;
+        setPlaybackPosition(0);
+        if (sound) {
+            await stopPlayback();
+        }
+    };
+
+    const handlePlayMessageAudio = async (message: Message) => {
+        if (!message.audio_url) {
+            return;
+        }
+
+        if (playingMessageId === message.id) {
+            await handleStopMessageAudio(message.id);
+            return;
+        }
+
+        if (playingMessageId) {
+            await handleStopMessageAudio(playingMessageId);
+        }
+
+        if (sound) {
+            await stopPlayback();
+        }
+
+        try {
+            await Audio.setAudioModeAsync({
+                allowsRecordingIOS: false,
+                playsInSilentModeIOS: true,
+                staysActiveInBackground: false,
+                shouldDuckAndroid: true,
+                playThroughEarpieceAndroid: false,
+            });
+        } catch (_audioModeError) {
+            // ignore
+        }
+
+        const audioUrl = resolveMessageAudioUrl(message.audio_url);
+
+        try {
+            // Load sound without playing first so it's ready before we start
+            const { sound: newSound } = await Audio.Sound.createAsync(
+                { uri: audioUrl },
+                { shouldPlay: false, volume: 1.0 }
+            );
+
+            // Wait for sound to be loaded before playing (fixes intermittent "sometimes plays, sometimes not")
+            let duration = 0;
+            for (let attempt = 0; attempt < 20; attempt++) {
+                const status = await newSound.getStatusAsync();
+                if (status.isLoaded) {
+                    if (status.durationMillis) {
+                        duration = Math.floor(status.durationMillis / 1000);
+                    }
+                    break;
+                }
+                await new Promise((r) => setTimeout(r, 100));
+            }
+
+            setMessageSounds(prev => {
+                const newMap = new Map(prev).set(message.id, newSound);
+                messageSoundsRef.current = newMap;
+                return newMap;
+            });
+            setPlayingMessageId(message.id);
+            setMessagePlaybackPositions(prev => new Map(prev).set(message.id, 0));
+            if (duration > 0) {
+                setMessageDurations(prev => new Map(prev).set(message.id, duration));
+            }
+
+            const messageDuration = duration;
+            const interval = setInterval(() => {
+                setMessagePlaybackPositions(prev => {
+                    const currentPosition = prev.get(message.id) || 0;
+                    const newPosition = currentPosition + 1;
+                    const newMap = new Map(prev);
+                    if (messageDuration > 0 && newPosition >= messageDuration) {
+                        if (messagePlaybackIntervalsRef.current.has(message.id)) {
+                            clearInterval(messagePlaybackIntervalsRef.current.get(message.id)!);
+                            messagePlaybackIntervalsRef.current.delete(message.id);
+                        }
+                        newMap.set(message.id, messageDuration);
+                    } else {
+                        newMap.set(message.id, newPosition);
+                    }
+                    return newMap;
+                });
+            }, 1000);
+
+            messagePlaybackIntervalsRef.current.set(message.id, interval);
+
+            newSound.setOnPlaybackStatusUpdate((status) => {
+                if (status.isLoaded) {
+                    if (status.durationMillis && duration === 0) {
+                        const newDuration = Math.floor(status.durationMillis / 1000);
+                        setMessageDurations(prev => new Map(prev).set(message.id, newDuration));
+                    }
+                    if (status.didJustFinish) {
+                        handleStopMessageAudio(message.id);
+                    } else if (status.positionMillis !== undefined) {
+                        const position = Math.floor(status.positionMillis / 1000);
+                        setMessagePlaybackPositions(prev => new Map(prev).set(message.id, position));
+                    }
+                }
+            });
+
+            // Start playback only after sound is loaded
+            await newSound.playAsync();
+        } catch (err) {
+            Alert.alert('Error', `Failed to play audio message: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        }
+    };
+
+    const handleStopMessageAudio = async (messageId: string) => {
+        const messageSound = messageSounds.get(messageId);
+        if (messageSound) {
+            await messageSound.stopAsync();
+            await messageSound.unloadAsync();
+            setMessageSounds(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(messageId);
+                messageSoundsRef.current = newMap;
+                return newMap;
+            });
+        }
+        setPlayingMessageId(null);
+        setMessagePlaybackPositions(prev => {
+            const newMap = new Map(prev);
+            newMap.set(messageId, 0);
+            return newMap;
+        });
+        const interval = messagePlaybackIntervalsRef.current.get(messageId);
+        if (interval) {
+            clearInterval(interval);
+            messagePlaybackIntervalsRef.current.delete(messageId);
+        }
     };
 
     const handleCloseProductDetail = () => {
         setSelectedProduct(null);
     };
 
+    const handleBookmarkLook = (_look: Look) => {
+    };
+
     const handleBackFromDetail = () => {
         setSelectedProduct(null);
     };
 
-    const handleSendMessage = () => {
-        if (!messageText.trim() || !conversationId || sendMessageMutation.isPending) return;
+    const handleSuggestionClick = (suggestionText: string) => {
+        if (!conversationId || sendMessageMutation.isPending) return;
+        handleSendMessageWithText(suggestionText);
+    };
 
-        const userMessageContent = messageText.trim();
+    const handleSendMessageWithText = (text?: string) => {
+        const messageToSend = (text || messageText).trim();
+        if (!messageToSend || !conversationId || sendMessageMutation.isPending) return;
+
+        const userMessageContent = messageToSend;
         const queryKey = queryKeys.conversations.messages(conversationId);
         
         const optimisticUserMessage: Message = {
@@ -313,10 +1383,6 @@ export default function AIChatScreen() {
         }
         
         setMessageText('');
-
-        setTimeout(() => {
-            scrollViewRef.current?.scrollToEnd({ animated: true });
-        }, 100);
 
         sendMessageMutation.mutate(
             {
@@ -348,15 +1414,7 @@ export default function AIChatScreen() {
                                 toAdd.push(data.assistant_message);
                                 
                                 if (data.assistant_message.metadata?.tool_calls && conversationId) {
-                                    const products = getProductsFromMessage(data.assistant_message);
-                                    if (products.length > 0) {
-                                        dispatch(setMessageProducts({
-                                            conversationId,
-                                            messageId: data.assistant_message.id,
-                                            products,
-                                        }));
-                                        console.log(`Cached ${products.length} products for message ${data.assistant_message.id} in Redux`);
-                                    }
+                                    ensureLooksForMessage(data.assistant_message.id, data.assistant_message);
                                 }
                             } else {
                                 const existingIndex = withoutOptimistic.findIndex(m => m.id === data.assistant_message.id);
@@ -369,25 +1427,15 @@ export default function AIChatScreen() {
                                         };
                                         
                                         if (conversationId) {
-                                            const products = getProductsFromMessage(data.assistant_message);
-                                            if (products.length > 0) {
-                                                dispatch(setMessageProducts({
-                                                    conversationId,
-                                                    messageId: data.assistant_message.id,
-                                                    products,
-                                                }));
-                                            }
+                                            ensureLooksForMessage(data.assistant_message.id, data.assistant_message);
                                         }
                                     }
                                 }
                             }
-                            
+
                             return [...withoutOptimistic, ...toAdd];
                         }
                     );
-                    setTimeout(() => {
-                        scrollViewRef.current?.scrollToEnd({ animated: true });
-                    }, 100);
                 },
                 onError: () => {
                     queryClient.setQueryData(
@@ -401,162 +1449,337 @@ export default function AIChatScreen() {
         );
     };
 
-    const handleProductPress = async (product: Product) => {
-        if (product.product_url) {
+    const handleSendMessage = () => {
+        handleSendMessageWithText();
+    };
+
+    const prepareAudioFormData = (audioUri: string): FormData => {
+        const formData = new FormData();
+        
+        const filename = audioUri.split('/').pop() || 'recording.m4a';
+        const match = /\.(\w+)$/.exec(filename);
+        let type = 'audio/m4a'; // Default to m4a for iOS recordings
+        if (match) {
+            const ext = match[1].toLowerCase();
+            if (ext === 'm4a') type = 'audio/m4a';
+            else if (ext === 'mp3') type = 'audio/mp3';
+            else if (ext === 'wav') type = 'audio/wav';
+            else if (ext === 'aac') type = 'audio/aac';
+            else type = 'audio/m4a'; // Default
+        }
+        
+        const fileUri = audioUri.startsWith('file://') ? audioUri : `file://${audioUri}`;
+        
+        const fileObject = {
+            uri: fileUri,
+            type: type,
+            name: filename,
+        };
+        
+        formData.append('message[audio]', fileObject as any);
+        formData.append('message[message_type]', 'voice');
+        formData.append('message[content]', '');
+        
+        return formData;
+    };
+
+    const handleSendAudioMessage = async () => {
+        if (!recordedAudioUri || !conversationId || sendMessageMutation.isPending) return;
+
+        try {
+            if (sound) {
+                await stopPlayback();
+            }
+            
             try {
-                const canOpen = await Linking.canOpenURL(product.product_url);
-                if (canOpen) {
-                    await Linking.openURL(product.product_url);
+                await Audio.setAudioModeAsync({
+                    allowsRecordingIOS: true,
+                    playsInSilentModeIOS: true,
+                    staysActiveInBackground: false,
+                    shouldDuckAndroid: true,
+                    playThroughEarpieceAndroid: false,
+                });
+            } catch (_audioModeError) {
+            }
+
+            const queryKey = queryKeys.conversations.messages(conversationId);
+            
+            const finalDuration = recordingDurationRef.current || recordingDuration;
+            const optimisticMessageId = `temp-${Date.now()}`;
+            const optimisticUserMessage: Message = {
+                id: optimisticMessageId,
+                role: 'user',
+                content: '',
+                message_type: 'voice',
+                audio_url: recordedAudioUri,
+                created_at: new Date().toISOString(),
+            };
+            
+            if (finalDuration > 0) {
+                setMessageDurations(prev => new Map(prev).set(optimisticMessageId, finalDuration));
+            }
+            
+            const currentMessages = queryClient.getQueryData<Message[]>(queryKey) || [];
+            const hasOptimistic = currentMessages.some(msg => 
+                msg.id.startsWith('temp-') && msg.message_type === 'voice'
+            );
+            
+            if (!hasOptimistic) {
+                const loadingMessage: Message = {
+                    id: `loading-${Date.now()}`,
+                    role: 'assistant',
+                    content: 'AI is generating response...',
+                    message_type: 'text',
+                    audio_url: null,
+                    created_at: new Date().toISOString(),
+                };
+                queryClient.setQueryData(queryKey, [...currentMessages, optimisticUserMessage, loadingMessage]);
+            }
+            
+            const formData = prepareAudioFormData(recordedAudioUri);
+            
+            const audioUriToSend = recordedAudioUri;
+            setRecordedAudioUri(null);
+            setRecordingDuration(0);
+            recordingDurationRef.current = 0;
+            setPlaybackPosition(0);
+
+            sendMessageMutation.mutate(
+                {
+                    conversationId,
+                    messageData: formData as any, // Send FormData directly
+                },
+                {
+                    onSuccess: (data) => {
+                        queryClient.setQueryData(
+                            queryKey,
+                            (oldMessages: Message[] = []) => {
+                                const withoutOptimistic = oldMessages.filter(
+                                    msg => !msg.id.startsWith('temp-') && !msg.id.startsWith('loading-')
+                                );
+                                
+                                const existingIds = new Set(withoutOptimistic.map(m => m.id));
+                                const toAdd: Message[] = [];
+                                
+                                if (!existingIds.has(data.user_message.id)) {
+                                    toAdd.push(data.user_message);
+                                    const optimisticDuration = messageDurations.get(optimisticMessageId);
+                                    if (optimisticDuration && optimisticDuration > 0) {
+                                        setMessageDurations(prev => new Map(prev).set(data.user_message.id, optimisticDuration));
+                                    }
+                                }
+                                
+                                if (!existingIds.has(data.assistant_message.id)) {
+                                    toAdd.push(data.assistant_message);
+                                    if (data.assistant_message.metadata?.tool_calls && conversationId) {
+                                        ensureLooksForMessage(data.assistant_message.id, data.assistant_message);
+                                    }
+                                } else {
+                                    const existingIndex = withoutOptimistic.findIndex(m => m.id === data.assistant_message.id);
+                                    if (existingIndex >= 0) {
+                                        const existing = withoutOptimistic[existingIndex];
+                                        if (data.assistant_message.metadata && !existing.metadata) {
+                                            withoutOptimistic[existingIndex] = {
+                                                ...existing,
+                                                metadata: data.assistant_message.metadata
+                                            };
+                                            
+                                            if (conversationId) {
+                                                ensureLooksForMessage(data.assistant_message.id, data.assistant_message);
+                                            }
+                                        }
+                                    }
+                                }
+
+                                return [...withoutOptimistic, ...toAdd];
+                            }
+                        );
+                    },
+                    onError: () => {
+                        setRecordedAudioUri(audioUriToSend);
+                        queryClient.setQueryData(
+                            queryKey,
+                            (oldMessages: Message[] = []) => {
+                                return oldMessages.filter(msg => !msg.id.startsWith('temp-') && !msg.id.startsWith('loading-'));
+                            }
+                        );
+                    },
                 }
-            } catch (error) {
-                console.error('Error opening product URL:', error);
-            }
+            );
+        } catch (err) {
+            Alert.alert('Error', 'Failed to send audio message. Please try again.');
         }
     };
 
-    const renderProductCard = (product: Product, index: number) => {
-        return (
-            <TouchableOpacity
-                key={product.id}
-                style={[styles.messageProductCard, { backgroundColor: colors.card }]}
-                onPress={() => handleProductPress(product)}
-                activeOpacity={0.7}
-            >
-                <Image
-                    source={{ uri: product.image_url }}
-                    style={styles.messageProductImage}
-                    resizeMode="cover"
-                />
-                <View style={styles.messageProductInfo}>
-                    <Text style={[styles.messageProductTitle, { color: colors.text }]} numberOfLines={2}>
-                        {product.title}
-                    </Text>
-                    {product.brand && (
-                        <Text style={[styles.messageProductBrand, { color: colors.textSecondary }]} numberOfLines={1}>
-                            {product.brand}
-                        </Text>
-                    )}
-                    <Text style={[styles.messageProductPrice, { color: colors.text }]}>
-                        {product.price}
-                    </Text>
-                </View>
-            </TouchableOpacity>
+    const getBackendUrl = (): string => {
+        return Constants.expoConfig?.extra?.backendUrl || '';
+    };
+
+    const resolveMessageAudioUrl = React.useCallback((audioUrl: string): string => {
+        let url = audioUrl;
+        const backendUrl = getBackendUrl();
+        if (url.includes('http://backend:') || url.includes('https://backend:')) {
+            url = url.replace(/https?:\/\/backend:\d+/, backendUrl);
+        } else if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('file://')) {
+            url = `${backendUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+        }
+        return url;
+    }, []);
+
+    // Pre-load duration for voice messages so we show correct time (e.g. "0:15") instead of 0:00
+    useEffect(() => {
+        if (!conversationId || messages.length === 0) return;
+        const voiceMessages = messages.filter(
+            (m) => m.message_type === 'voice' && m.audio_url && !m.id.startsWith('temp-') && !m.id.startsWith('loading-')
         );
+        if (voiceMessages.length === 0) return;
+        let cancelled = false;
+        (async () => {
+            for (const message of voiceMessages) {
+                if (cancelled) return;
+                if (durationLoadRequestedRef.current.has(message.id)) continue;
+                durationLoadRequestedRef.current.add(message.id);
+                try {
+                    const audioUrl = resolveMessageAudioUrl(message.audio_url!);
+                    const { sound: loadSound } = await Audio.Sound.createAsync(
+                        { uri: audioUrl },
+                        { shouldPlay: false }
+                    );
+                    if (cancelled) {
+                        loadSound.unloadAsync().catch(() => {});
+                        return;
+                    }
+                    let duration = 0;
+                    for (let attempt = 0; attempt < 15; attempt++) {
+                        const status = await loadSound.getStatusAsync();
+                        if (status.isLoaded && status.durationMillis) {
+                            duration = Math.floor(status.durationMillis / 1000);
+                            break;
+                        }
+                        await new Promise((r) => setTimeout(r, 100));
+                    }
+                    if (duration > 0) {
+                        setMessageDurations((prev) => new Map(prev).set(message.id, duration));
+                    }
+                    await loadSound.unloadAsync();
+                } catch {
+                    durationLoadRequestedRef.current.delete(message.id);
+                }
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [messages, conversationId, resolveMessageAudioUrl]);
+
+    const getPersonImageUrl = (): string | null => {
+        if (stylePhotos.length === 0) return null;
+        const sortedPhotos = [...stylePhotos].sort((a, b) => a.position - b.position);
+        const firstPhoto = sortedPhotos[0];
+        
+        if (firstPhoto && firstPhoto.image_url) {
+            const backendUrl = getBackendUrl();
+            return firstPhoto.image_url.startsWith('http://') || firstPhoto.image_url.startsWith('https://')
+                ? firstPhoto.image_url
+                : `${backendUrl}${firstPhoto.image_url}`;
+        }
+        return null;
     };
 
-    const getProductsForMessage = React.useCallback((message: Message): Product[] => {
-        if (message.role === 'user') {
-            return [];
-        }
-        
-        const messageProducts = getProductsFromMessage(message);
-        if (messageProducts.length > 0) {
-            console.log(`Products from message metadata for ${message.id}:`, messageProducts.length);
-            return messageProducts;
-        }
-        
+    const handleCloseTryOnModal = () => {
+        setShowTryOnModal(false);
+        setTryOnResult(null);
+    };
+
+    const getLooksForMessage = React.useCallback((message: Message): Look[] => {
+        if (message.role === 'user') return [];
+
         if (conversationId) {
-            const cached = cachedProducts[message.id];
-            if (cached && cached.length > 0) {
-                console.log(`Products from Redux for message ${message.id}:`, cached.length, cached);
-                return cached;
-            } else {
-                console.log(`No products in Redux for message ${message.id}, cachedProducts:`, cachedProducts);
-            }
+            const cached = getCachedLooks(message.id);
+            if (cached && cached.length > 0) return cached;
         }
-        
+
+        const messageLooks = getLooksFromMessage(message);
+        if (messageLooks.length > 0) return messageLooks;
+
         const preservedMetadata = messagesWithMetadataRef.current.get(message.id);
         if (preservedMetadata) {
             const messageWithMetadata = { ...message, metadata: preservedMetadata };
-            const products = getProductsFromMessage(messageWithMetadata);
-            if (products.length > 0) {
-                console.log(`Products from preserved metadata for ${message.id}:`, products.length);
-            }
-            return products;
+            return getLooksFromMessage(messageWithMetadata);
         }
-        
         return [];
-    }, [conversationId, cachedProducts]);
+    }, [conversationId, getCachedLooks]);
 
-    const renderMessage = (message: Message, index: number) => {
-        const isUser = message.role === 'user';
-        const isLoading = message.id.startsWith('loading-');
-        const avatarSource = displayStylist?.avatar_url
-            ? { uri: displayStylist.avatar_url }
-            : require('@/assets/ava.png');
-        
-        const products = getProductsForMessage(message);
-        const hasProducts = products.length > 0;
-        
+    const ensureLooksForMessage = React.useCallback(
+        (messageId: string, messageWithMetadata: Message) => {
+            if (!conversationId) return;
+            const looks = getLooksFromMessage(messageWithMetadata);
+            if (looks.length === 0) return;
 
-        return (
-            <View key={message.id}>
-                <View
-                    style={[
-                        styles.messageContainer,
-                        isUser ? styles.userMessageContainer : styles.assistantMessageContainer,
-                    ]}
-                >
-                    {!isUser && (
-                        <Image
-                            source={avatarSource}
-                            style={styles.messageAvatar}
-                            resizeMode="cover"
-                        />
-                    )}
-                    <View
-                        style={[
-                            styles.messageBubble,
-                            isUser
-                                ? { backgroundColor: colors.buttonPrimary }
-                                : { backgroundColor: colors.card },
-                        ]}
-                    >
-                        {isLoading ? (
-                            <View style={styles.loadingMessageContainer}>
-                                <ActivityIndicator size="small" color={colors.textSecondary} />
-                                <Text
-                                    style={[
-                                        styles.messageText,
-                                        { color: colors.textSecondary, marginLeft: scaleFontSize(8) },
-                                    ]}
-                                >
-                                    {message.content}
-                                </Text>
-                            </View>
-                        ) : (
-                            <Text
-                                style={[
-                                    styles.messageText,
-                                    { color: isUser ? colors.buttonText : colors.text },
-                                ]}
-                            >
-                                {message.content}
-                            </Text>
-                        )}
-                    </View>
-                </View>
-                
-                {hasProducts && products.length > 0 && (
-                    <View style={styles.messageProductsSection}>
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.messageProductsScrollContainer}
-                            style={styles.messageProductsScrollView}
-                        >
-                            {products.map((product, productIndex) => {
-                                if (!product || !product.id || !product.title || !product.image_url) {
-                                    return null;
-                                }
-                                return renderProductCard(product, productIndex);
-                            })}
-                        </ScrollView>
-                    </View>
-                )}
-            </View>
-        );
-    };
+            const existingCached = getCachedLooks(messageId);
+            if (!existingCached || existingCached.length === 0) {
+                setLooksForMessage(messageId, looks).then(() => {
+                    generateLightXImagesForLooks(
+                        conversationId,
+                        messageId,
+                        looks,
+                        () => getCachedLooks(messageId) ?? [],
+                        updateLookLightX,
+                        updateLookLightXError
+                    );
+                });
+                return;
+            }
+
+            const mergedLooks: Look[] = [];
+            const looksNeedingGeneration: Look[] = [];
+            for (let index = 0; index < looks.length; index++) {
+                const newLook = looks[index];
+                const cachedLook = existingCached[index];
+                if (cachedLook) {
+                    if (cachedLook.lightXImageUrl) {
+                        const productsMatch =
+                            cachedLook.products.length === newLook.products.length &&
+                            cachedLook.products.every((p, i) => p.id === newLook.products[i]?.id);
+                        if (productsMatch) {
+                            mergedLooks.push(cachedLook);
+                            continue;
+                        }
+                    }
+                    const productsMatch =
+                        cachedLook.products.length === newLook.products.length &&
+                        cachedLook.products.every((p, i) => p.id === newLook.products[i]?.id);
+                    if (productsMatch) {
+                        looksNeedingGeneration.push(cachedLook);
+                        mergedLooks.push(cachedLook);
+                        continue;
+                    }
+                }
+                looksNeedingGeneration.push(newLook);
+                mergedLooks.push(newLook);
+            }
+            setLooksForMessage(messageId, mergedLooks).then(() => {
+                if (looksNeedingGeneration.length > 0) {
+                    generateLightXImagesForLooks(
+                        conversationId,
+                        messageId,
+                        looksNeedingGeneration,
+                        () => getCachedLooks(messageId) ?? [],
+                        updateLookLightX,
+                        updateLookLightXError
+                    );
+                }
+            });
+        },
+        [
+            conversationId,
+            getCachedLooks,
+            setLooksForMessage,
+            generateLightXImagesForLooks,
+            updateLookLightX,
+            updateLookLightXError,
+        ]
+    );
 
     if (selectedProduct) {
         return (
@@ -565,6 +1788,16 @@ export default function AIChatScreen() {
                 onClose={handleCloseProductDetail}
                 onBack={handleBackFromDetail}
                 selectedOption="existing"
+            />
+        );
+    }
+
+    if (selectedLook) {
+        return (
+            <LookDetailView
+                look={selectedLook.look}
+                onClose={() => setSelectedLook(null)}
+                onBack={() => setSelectedLook(null)}
             />
         );
     }
@@ -611,9 +1844,8 @@ export default function AIChatScreen() {
         );
     }
 
-    const avatarSource = displayStylist?.avatar_url
-        ? { uri: displayStylist.avatar_url }
-        : require('@/assets/ava.png');
+    const stylistIndex = displayStylist?.id ? (stylistIndexMap.get(displayStylist.id) ?? 0) : 0;
+    const avatarSource = getStylistImage(displayStylist?.id, stylistIndex, displayStylist?.name);
 
     return (
         <KeyboardAvoidingView
@@ -653,125 +1885,74 @@ export default function AIChatScreen() {
                         </View>
                     </View>
                 )}
-                {isMicActive && (
-                    <TouchableOpacity
-                        style={styles.closeButton}
-                        onPress={handleCloseMic}
-                        activeOpacity={0.7}
-                    >
-                        <View style={styles.closeButtonBackground}>
-                            <Ionicons name="close" size={scaleFontSize(16)} color="#A6A6A6" />
-                        </View>
-                    </TouchableOpacity>
-                )}
+                <TouchableOpacity
+                    style={styles.menuButton}
+                    onPress={handleMenuPress}
+                    activeOpacity={0.7}
+                >
+                    <View style={styles.menuButtonBackground}>
+                        <Ionicons name="ellipsis-horizontal" size={scaleFontSize(20)} color="#A6A6A6" />
+                    </View>
+                </TouchableOpacity>
             </View>
 
-            {isMicActive ? (
-                <View style={styles.content}>
-                    <View style={styles.imageContainer}>
-                        <Image
-                            source={avatarSource}
-                            style={styles.imageStyle}
-                            resizeMode="contain"
-                        />
-                    </View>
-
-                    <Text style={[styles.greeting, { color: colors.text }]}>
-                        {translations.aiChat.greeting.replace('{firstName}', firstName)}
-                    </Text>
-
-                    <Text style={[styles.instruction, { color: colors.textSecondary }]}>
-                        {translations.aiChat.instruction}
-                    </Text>
-
-                    <TouchableOpacity style={styles.microphoneButton} activeOpacity={0.8}>
-                        <View style={styles.micContainer}>
-                            <Animated.View
-                                style={[
-                                    styles.micOuter,
-                                    {
-                                        backgroundColor: '#E3E5E5',
-                                        transform: [{ scale: outerPulse }],
-                                    },
-                                ]}
-                                renderToHardwareTextureAndroid={true}
-                                shouldRasterizeIOS={true}
-                            >
-                                <Animated.View
-                                    style={[
-                                        styles.micMiddle,
-                                        {
-                                            backgroundColor: colors.micInner,
-                                            transform: [{ scale: middlePulse }],
-                                        },
-                                    ]}
-                                    renderToHardwareTextureAndroid={true}
-                                    shouldRasterizeIOS={true}
-                                >
-                                    <Animated.View
-                                        style={[
-                                            styles.micInner,
-                                            {
-                                                backgroundColor: colors.micMiddle,
-                                                borderWidth: scaleFontSize(2),
-                                                borderColor: '#FFFFFF',
-                                                transform: [{ scale: innerPulse }],
-                                            },
-                                        ]}
-                                        renderToHardwareTextureAndroid={true}
-                                        shouldRasterizeIOS={true}
-                                    />
-                                </Animated.View>
-                            </Animated.View>
-                            <View style={styles.micIconContainer}>
-                                <MicIcon size={scaleFontSize(24)} color="#FFFFFF" />
-                            </View>
-                        </View>
-                    </TouchableOpacity>
-                </View>
-            ) : conversationId ? (
+            {conversationId ? (
                 <View style={styles.chatContainer}>
                     {isLoadingMessages ? (
                         <View style={styles.loadingContainer}>
                             <ActivityIndicator size="large" color={colors.text} />
                         </View>
                     ) : messages.length === 0 ? (
-                        <View style={styles.emptyChatContainer}>
-                            <Image
-                                source={avatarSource}
-                                style={styles.emptyChatAvatar}
-                                resizeMode="contain"
-                            />
-                            <Text style={[styles.greeting, { color: colors.text }]}>
-                                {translations.aiChat.greeting.replace('{firstName}', firstName)}
-                            </Text>
-                            <Text style={[styles.instruction, { color: colors.textSecondary }]}>
-                                {translations.aiChat.instruction}
-                            </Text>
-                        </View>
+                        <EmptyChatView
+                            avatarSource={avatarSource}
+                            firstName={firstName}
+                            onSuggestionClick={handleSuggestionClick}
+                        />
                     ) : (
-                        <ScrollView
-                            ref={scrollViewRef}
+                        <FlatList
+                            data={[...messages].reverse()}
+                            keyExtractor={(item) => item.id}
+                            inverted
                             style={styles.messagesList}
                             contentContainerStyle={styles.messagesContent}
                             showsVerticalScrollIndicator={false}
-                            onContentSizeChange={() => {
-                                if (isInitialLoad.current || hasScrolledToBottom.current) {
-                                    setTimeout(() => {
-                                        scrollViewRef.current?.scrollToEnd({ 
-                                            animated: !isInitialLoad.current 
-                                        });
-                                        if (isInitialLoad.current) {
-                                            isInitialLoad.current = false;
-                                            hasScrolledToBottom.current = true;
-                                        }
-                                    }, 50);
-                                }
+                            renderItem={({ item: message }) => {
+                                const isUser = message.role === 'user';
+                                const stylistIndex = displayStylist?.id ? (stylistIndexMap.get(displayStylist.id) ?? 0) : 0;
+                                const messageAvatarSource = getStylistImage(displayStylist?.id, stylistIndex, displayStylist?.name);
+                                const looks = getLooksForMessage(message);
+                                const messageMetadata = message.metadata ?? messagesWithMetadataRef.current.get(message.id);
+                                const lookIndicesWithTryOn = getLookIndicesWithTryOn(messageMetadata, looks);
+                                const isPlaying = playingMessageId === message.id;
+                                const playbackPosition = messagePlaybackPositions.get(message.id) || 0;
+                                const messageDuration = messageDurations.get(message.id) || 0;
+
+                                return (
+                                    <MessageBubble
+                                        message={message}
+                                        isUser={isUser}
+                                        avatarSource={messageAvatarSource}
+                                        looks={looks}
+                                        lookIndicesWithTryOn={lookIndicesWithTryOn}
+                                        generatingLightXImages={generatingLightXImages}
+                                        isPlaying={isPlaying}
+                                        playbackPosition={playbackPosition}
+                                        messageDuration={messageDuration}
+                                        onPlayAudio={() => handlePlayMessageAudio(message)}
+                                        onStopAudio={() => handleStopMessageAudio(message.id)}
+                                        onLookPress={(messageId, lookIndex, look) => {
+                                            setSelectedLook({
+                                                messageId,
+                                                lookIndex,
+                                                look,
+                                            });
+                                        }}
+                                        onBookmarkLook={handleBookmarkLook}
+                                        formatDuration={formatDuration}
+                                    />
+                                );
                             }}
-                        >
-                            {messages.map((message, index) => renderMessage(message, index))}
-                            <View ref={messagesEndRef} />
-                        </ScrollView>
+                        />
                     )}
                 </View>
             ) : (
@@ -839,86 +2020,91 @@ export default function AIChatScreen() {
                 </View>
             )}
 
-            {conversationId && !isMicActive && (
+            {conversationId && (
                 <View style={styles.bottomBarContainer}>
                     <View style={[styles.bottomBar, { backgroundColor: 'white' }]}>
-                        <TextInput
-                            style={[styles.messageInput, { color: colors.text }]}
-                            placeholder="Type a message..."
-                            placeholderTextColor={colors.textSecondary}
-                            value={messageText}
-                            onChangeText={setMessageText}
-                            multiline={false}
-                            onSubmitEditing={handleSendMessage}
-                            returnKeyType="send"
-                            editable={!sendMessageMutation.isPending}
-                        />
-                        <View style={styles.buttonsRow}>
-                            <View style={styles.leftButtons}>
-                                <TouchableOpacity style={[styles.circleButton, { backgroundColor: colors.bottomBarButtonBackground }]} activeOpacity={0.7}>
-                                    <Ionicons name="add" size={scaleFontSize(20)} color={colors.text} />
-                                </TouchableOpacity>
-                                <TouchableOpacity 
-                                    style={[styles.circleButton, { backgroundColor: colors.bottomBarButtonBackground }]} 
-                                    activeOpacity={0.7}
-                                    onPress={handleMicToggle}
-                                >
-                                    <MicIcon size={scaleFontSize(20)} color={colors.text} />
-                                </TouchableOpacity>
-                            </View>
-                            <TouchableOpacity 
-                                style={[
-                                    styles.circleButton, 
-                                    { 
-                                        backgroundColor: messageText.trim() ? colors.buttonPrimary : colors.bottomBarButtonBackground 
-                                    }
-                                ]} 
-                                activeOpacity={0.7}
-                                onPress={handleSendMessage}
-                                disabled={!messageText.trim() || sendMessageMutation.isPending}
-                            >
-                                {sendMessageMutation.isPending ? (
-                                    <ActivityIndicator size="small" color={colors.buttonText} />
-                                ) : (
-                                    <SendIcon size={scaleFontSize(12)} color={messageText.trim() ? colors.buttonText : colors.textSecondary} />
-                                )}
-                            </TouchableOpacity>
-                        </View>
+                        {isRecording || recordedAudioUri ? (
+                            <VoiceCard
+                                isRecording={isRecording}
+                                recordedAudioUri={recordedAudioUri}
+                                recordingDuration={recordingDuration}
+                                playbackPosition={playbackPosition}
+                                isPlaying={isPlaying}
+                                isSending={sendMessageMutation.isPending}
+                                maxDuration={MAX_RECORDING_DURATION}
+                                onMicToggle={handleMicToggle}
+                                onCancel={handleCancelRecording}
+                                onPlay={playRecordedAudio}
+                                onStopPlayback={stopPlayback}
+                                onSend={handleSendAudioMessage}
+                                formatDuration={formatDuration}
+                            />
+                        ) : (
+                            <InputBar
+                                messageText={messageText}
+                                onMessageTextChange={setMessageText}
+                                onSend={handleSendMessage}
+                                onMicPress={handleMicToggle}
+                                isSending={sendMessageMutation.isPending}
+                            />
+                        )}
                     </View>
                 </View>
             )}
 
-            {!conversationId && !isMicActive && (
+            {!conversationId && (
                 <View style={styles.bottomBarContainer}>
                     <View style={[styles.bottomBar, { backgroundColor: 'white' }]}>
-                        <TextInput
-                            style={[styles.refineInput, { color: colors.text }]}
-                            placeholder={translations.aiChat.refinePlaceholder}
-                            placeholderTextColor={colors.textSecondary}
-                            value={messageText}
-                            onChangeText={setMessageText}
-                            multiline={false}
-                        />
-                        <View style={styles.buttonsRow}>
-                            <View style={styles.leftButtons}>
-                                <TouchableOpacity style={[styles.circleButton, { backgroundColor: colors.bottomBarButtonBackground }]} activeOpacity={0.7}>
-                                    <Ionicons name="add" size={scaleFontSize(20)} color={colors.text} />
-                                </TouchableOpacity>
-                                <TouchableOpacity 
-                                    style={[styles.circleButton, { backgroundColor: colors.bottomBarButtonBackground }]} 
-                                    activeOpacity={0.7}
-                                    onPress={handleMicToggle}
-                                >
-                                    <MicIcon size={scaleFontSize(20)} color={colors.text} />
-                                </TouchableOpacity>
-                            </View>
-                            <TouchableOpacity style={[styles.circleButton, { backgroundColor: colors.bottomBarButtonBackground }]} activeOpacity={0.7}>
-                                <SendIcon size={scaleFontSize(12)} color={colors.textSecondary} />
-                            </TouchableOpacity>
-                        </View>
+                        {isRecording || recordedAudioUri ? (
+                            <VoiceCard
+                                isRecording={isRecording}
+                                recordedAudioUri={recordedAudioUri}
+                                recordingDuration={recordingDuration}
+                                playbackPosition={playbackPosition}
+                                isPlaying={isPlaying}
+                                isSending={sendMessageMutation.isPending}
+                                maxDuration={MAX_RECORDING_DURATION}
+                                onMicToggle={handleMicToggle}
+                                onCancel={handleCancelRecording}
+                                onPlay={playRecordedAudio}
+                                onStopPlayback={stopPlayback}
+                                onSend={handleSendAudioMessage}
+                                formatDuration={formatDuration}
+                            />
+                        ) : (
+                            <InputBar
+                                messageText={messageText}
+                                onMessageTextChange={setMessageText}
+                                onSend={handleSendMessage}
+                                onMicPress={handleMicToggle}
+                                isSending={sendMessageMutation.isPending}
+                                showRefineInput={true}
+                            />
+                        )}
                     </View>
                 </View>
             )}
+
+            <MenuModal
+                visible={showMenuModal}
+                onClose={handleCloseMenuModal}
+                onViewChatHistory={handleViewChatHistory}
+                onChangeStylist={handleChangeStylistPress}
+            />
+
+            <ChangeStylistModal
+                visible={showChangeStylistModal}
+                onClose={handleCloseChangeStylistModal}
+                selectedStylist={selectedStylistForChange}
+                currentStylist={stylist || null}
+                onSelectStylist={handleStylistSelection}
+            />
+
+            <TryOnModal
+                visible={showTryOnModal}
+                onClose={handleCloseTryOnModal}
+                resultUrl={tryOnResult?.resultUrl || null}
+            />
         </KeyboardAvoidingView>
     );
 }
@@ -938,6 +2124,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: scaleFontSize(20),
         paddingTop: scaleFontSize(12),
         paddingBottom: scaleFontSize(16),
+        position: 'relative',
+        zIndex: 1,
     },
     stylistHeaderInfo: {
         flexDirection: 'row',
@@ -1018,49 +2206,6 @@ const styles = StyleSheet.create({
         paddingTop: scaleFontSize(16),
         paddingBottom: scaleFontSize(16),
     },
-    messageContainer: {
-        flexDirection: 'row',
-        marginBottom: scaleFontSize(16),
-        alignItems: 'flex-end',
-    },
-    userMessageContainer: {
-        justifyContent: 'flex-end',
-    },
-    assistantMessageContainer: {
-        justifyContent: 'flex-start',
-    },
-    messageAvatar: {
-        width: scaleFontSize(32),
-        height: scaleFontSize(32),
-        borderRadius: scaleFontSize(16),
-        marginRight: scaleFontSize(8),
-    },
-    messageBubble: {
-        maxWidth: '75%',
-        paddingHorizontal: scaleFontSize(16),
-        paddingVertical: scaleFontSize(12),
-        borderRadius: scaleFontSize(16),
-    },
-    messageText: {
-        fontSize: scaleFontSize(14),
-        fontFamily: FONTS.nunitoRegular,
-        lineHeight: scaleFontSize(20),
-    },
-    loadingMessageContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    emptyChatContainer: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: scaleFontSize(24),
-    },
-    emptyChatAvatar: {
-        width: scaleFontSize(200),
-        height: scaleFontSize(240),
-        marginBottom: scaleFontSize(24),
-    },
     imageContainer: {
         marginBottom: scaleFontSize(24),
     },
@@ -1080,7 +2225,7 @@ const styles = StyleSheet.create({
         fontFamily: FONTS.nunitoRegular,
         lineHeight: scaleFontSize(24),
         textAlign: 'center',
-        marginBottom: scaleFontSize(48),
+        marginBottom: scaleFontSize(24),
         paddingHorizontal: scaleFontSize(20),
     },
     microphoneButton: {
@@ -1177,53 +2322,19 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    messageProductsSection: {
-        marginTop: scaleFontSize(12),
-        marginBottom: scaleFontSize(16),
-        paddingHorizontal: scaleFontSize(20),
+    menuButton: {
+        width: scaleFontSize(32),
+        height: scaleFontSize(32),
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    messageProductsScrollView: {
-        marginHorizontal: scaleFontSize(-20),
-    },
-    messageProductsScrollContainer: {
-        paddingHorizontal: scaleFontSize(20),
-        paddingRight: scaleFontSize(32),
-    },
-    messageProductCard: {
-        width: scaleFontSize(200),
-        marginRight: scaleFontSize(12),
-        borderRadius: scaleFontSize(12),
-        overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-    messageProductImage: {
-        width: '100%',
-        height: scaleFontSize(200),
-        backgroundColor: '#f0f0f0',
-    },
-    messageProductInfo: {
-        padding: scaleFontSize(12),
-    },
-    messageProductTitle: {
-        fontSize: scaleFontSize(14),
-        fontFamily: FONTS.nunitoMedium,
-        fontWeight: '600',
-        marginBottom: scaleFontSize(4),
-        lineHeight: scaleFontSize(18),
-    },
-    messageProductBrand: {
-        fontSize: scaleFontSize(12),
-        fontFamily: FONTS.nunitoRegular,
-        marginBottom: scaleFontSize(4),
-    },
-    messageProductPrice: {
-        fontSize: scaleFontSize(16),
-        fontFamily: FONTS.nunitoBold,
-        fontWeight: '700',
-        marginTop: scaleFontSize(4),
+    menuButtonBackground: {
+        width: scaleFontSize(32),
+        height: scaleFontSize(32),
+        borderRadius: scaleFontSize(16),
+        backgroundColor: '#FFFFFF',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });
+

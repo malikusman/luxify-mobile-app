@@ -9,12 +9,10 @@ import orderReducer from './slices/orderSlice';
 import authReducer from './slices/authSlice';
 import awarenessReducer from './slices/awarenessSlice';
 import styleProfileReducer from './slices/styleProfileSlice';
-import conversationProductsReducer from './slices/conversationProductsSlice';
-
 const persistConfig = {
     key: 'root',
     storage: AsyncStorage,
-    whitelist: ['theme', 'closet', 'auth', 'awareness', 'conversationProducts'],
+    whitelist: ['theme', 'closet', 'auth', 'awareness'],
 };
 
 const rootReducer = combineReducers({
@@ -25,7 +23,6 @@ const rootReducer = combineReducers({
     auth: authReducer,
     awareness: awarenessReducer,
     styleProfile: styleProfileReducer,
-    conversationProducts: conversationProductsReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

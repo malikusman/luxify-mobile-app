@@ -11,12 +11,15 @@ import { Conversation } from '@/src/services/modules/conversations/conversationT
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/src/services/queryClient';
+import { getStylistImage } from '@/src/utils/stylistImageMapper';
+import { useStylists } from '@/src/services/modules/stylists/stylistHooks';
 
 export default function ChatScreen() {
     const router = useRouter();
     const colors = useThemeColors();
     const insets = useSafeAreaInsets();
     const { data: conversations, isLoading, error } = useConversations();
+    const { data: allStylists = [] } = useStylists();
     const [searchQuery, setSearchQuery] = useState('');
     const queryClient = useQueryClient();
 
@@ -24,6 +27,17 @@ export default function ChatScreen() {
     const filteredConversations = conversations?.filter(conv =>
         conv.stylist.name.toLowerCase().includes(searchQuery.toLowerCase())
     ) || [];
+
+    // Create a map of stylist IDs to their index for consistent image mapping
+    // Use allStylists to ensure consistent mapping across all screens
+    const stylistIndexMap = React.useMemo(() => {
+        const map = new Map<string, number>();
+        const sortedStylists = [...allStylists].sort((a, b) => a.id.localeCompare(b.id));
+        sortedStylists.forEach((s, index) => {
+            map.set(s.id, index);
+        });
+        return map;
+    }, [allStylists]);
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
@@ -67,9 +81,8 @@ export default function ChatScreen() {
     };
 
     const renderConversationItem = ({ item }: { item: Conversation }) => {
-        const avatarSource = item.stylist.avatar_url 
-            ? { uri: item.stylist.avatar_url }
-            : require('@/assets/ava.png');
+        const stylistIndex = stylistIndexMap.get(item.stylist.id) ?? 0;
+        const avatarSource = getStylistImage(item.stylist.id, stylistIndex, item.stylist.name);
         
         const lastMessage = getLastMessage(item);
         const unreadCount = getUnreadCount(item);
