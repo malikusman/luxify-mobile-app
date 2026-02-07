@@ -1,4 +1,4 @@
-import React, { forwardRef, useImperativeHandle } from 'react';
+import React, { forwardRef, useImperativeHandle, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Formik, FormikProps } from 'formik';
@@ -7,25 +7,47 @@ import { useThemeColors } from '@/src/theme/Colors';
 import { translations } from '@/src/constants/translations';
 import { FONTS } from '@/src/constants/fonts';
 import * as Yup from 'yup';
+import type { QuestionnaireFormField } from '@/src/services/modules/options/questionnaireTypes';
 
 interface SelectGenderProps {
     initialValues: { gender: string };
     onSubmit: (values: { gender: string }) => void;
+    genderField?: QuestionnaireFormField | null;
 }
 
 export interface SelectGenderRef {
     submitForm: () => void;
 }
 
-const genderSchema = Yup.object().shape({
-    gender: Yup.string()
-        .required('Please select a gender')
-        .oneOf(['Female', 'Male'], 'Please select a valid gender'),
-});
+const DEFAULT_OPTIONS = [
+    { value: 'female', label: 'Female' },
+    { value: 'male', label: 'Male' },
+];
 
-const SelectGender = forwardRef<SelectGenderRef, SelectGenderProps>(({ initialValues, onSubmit }, ref) => {
+const SelectGender = forwardRef<SelectGenderRef, SelectGenderProps>(({ initialValues, onSubmit, genderField }, ref) => {
     const colors = useThemeColors();
     const t = translations.onboarding;
+
+    const options = useMemo(() => {
+        if (genderField?.options && genderField.options.length >= 2) {
+            return genderField.options;
+        }
+        return DEFAULT_OPTIONS;
+    }, [genderField]);
+
+    const title = genderField?.label ?? t.selectGenderTitle;
+    const subtitle = t.selectGenderSubtitle;
+
+    const validValues = useMemo(() => options.map((o) => o.value), [options]);
+    const genderSchema = useMemo(
+        () =>
+            Yup.object().shape({
+                gender: Yup.string()
+                    .required('Please select a gender')
+                    .oneOf(validValues, 'Please select a valid gender'),
+            }),
+        [validValues]
+    );
 
     const formikRef = React.useRef<FormikProps<any>>(null);
 
@@ -42,64 +64,58 @@ const SelectGender = forwardRef<SelectGenderRef, SelectGenderProps>(({ initialVa
             validationSchema={genderSchema}
             onSubmit={onSubmit}
         >
-            {({ handleSubmit, values, errors, touched, setFieldValue }) => (
+            {({ values, errors, touched, setFieldValue }) => (
                 <View style={styles.container}>
                     <View style={styles.topSection}>
-                        <Text style={[styles.title, { color: colors.text }]}>
-                            {t.selectGenderTitle}
-                        </Text>
-                        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                            {t.selectGenderSubtitle}
-                        </Text>
+                        <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+                        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{subtitle}</Text>
                     </View>
 
                     <View style={styles.middleSection}>
                         <View style={styles.genderOptionsContainer}>
-                            <TouchableOpacity
-                                style={styles.genderOption}
-                                onPress={() => setFieldValue('gender', 'Female')}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={[styles.genderLabel, { color: colors.text }]}>Female</Text>
-                                <View style={styles.imageContainer}>
-                                    <Image
-                                        source={require('@/assets/female.png')}
-                                        style={styles.genderImage}
-                                        resizeMode="cover"
-                                    />
-                                    {values.gender === 'Female' && (
-                                        <View style={[styles.checkmarkContainer, { backgroundColor: colors.buttonPrimary }]}>
-                                            <Ionicons name="checkmark" size={scaleFontSize(20)} color={colors.buttonText} />
+                            {options.map((opt) => {
+                                const isFirst = opt.value.toLowerCase() === 'female';
+                                const selected = values.gender?.toLowerCase() === opt.value.toLowerCase();
+                                return (
+                                    <TouchableOpacity
+                                        key={opt.value}
+                                        style={styles.genderOption}
+                                        onPress={() => setFieldValue('gender', opt.value)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={[styles.genderLabel, { color: colors.text }]}>{opt.label}</Text>
+                                        <View style={styles.imageContainer}>
+                                            <Image
+                                                source={
+                                                    isFirst
+                                                        ? require('@/assets/female.png')
+                                                        : require('@/assets/male.png')
+                                                }
+                                                style={styles.genderImage}
+                                                resizeMode="cover"
+                                            />
+                                            {selected && (
+                                                <View
+                                                    style={[
+                                                        styles.checkmarkContainer,
+                                                        { backgroundColor: colors.buttonPrimary },
+                                                    ]}
+                                                >
+                                                    <Ionicons
+                                                        name="checkmark"
+                                                        size={scaleFontSize(20)}
+                                                        color={colors.buttonText}
+                                                    />
+                                                </View>
+                                            )}
                                         </View>
-                                    )}
-                                </View>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={styles.genderOption}
-                                onPress={() => setFieldValue('gender', 'Male')}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={[styles.genderLabel, { color: colors.text }]}>Male</Text>
-                                <View style={styles.imageContainer}>
-                                    <Image
-                                        source={require('@/assets/male.png')}
-                                        style={styles.genderImage}
-                                        resizeMode="cover"
-                                    />
-                                    {values.gender === 'Male' && (
-                                        <View style={[styles.checkmarkContainer, { backgroundColor: colors.buttonPrimary }]}>
-                                            <Ionicons name="checkmark" size={scaleFontSize(20)} color={colors.buttonText} />
-                                        </View>
-                                    )}
-                                </View>
-                            </TouchableOpacity>
+                                    </TouchableOpacity>
+                                );
+                            })}
                         </View>
 
                         {touched.gender && errors.gender && (
-                            <Text style={[styles.errorText, { color: colors.error }]}>
-                                {errors.gender}
-                            </Text>
+                            <Text style={[styles.errorText, { color: colors.error }]}>{errors.gender}</Text>
                         )}
                     </View>
                 </View>

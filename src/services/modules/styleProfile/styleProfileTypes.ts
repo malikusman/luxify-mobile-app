@@ -8,6 +8,14 @@ export interface StyleProfile {
     location?: string | null;
     body_type?: string | null;
     favorite_colors?: string[] | null;
+    /** Questionnaire preference fields (top-level per API; also may be in style_preferences for legacy) */
+    location_preference?: string[] | null;
+    lifestyle_preference?: string[] | null;
+    color_preference?: string[] | null;
+    body_areas_to_highlight?: string[] | null;
+    style_identity?: string[] | null;
+    comfort_preference?: string[] | null;
+    style_inspiration?: string[] | null;
     style_preferences?: Record<string, any> | null;
     created_at: string;
     updated_at: string;
@@ -21,6 +29,13 @@ export interface CreateStyleProfileRequest {
     body_type?: string;
     occupation?: string;
     favorite_colors?: string[];
+    location_preference?: string[];
+    lifestyle_preference?: string[];
+    color_preference?: string[];
+    body_areas_to_highlight?: string[];
+    style_identity?: string[];
+    comfort_preference?: string[];
+    style_inspiration?: string[];
     style_preferences?: Record<string, any>;
 }
 
@@ -38,6 +53,13 @@ export interface UpdateStyleProfileRequest {
     body_type?: string;
     occupation?: string;
     favorite_colors?: string[];
+    location_preference?: string[];
+    lifestyle_preference?: string[];
+    color_preference?: string[];
+    body_areas_to_highlight?: string[];
+    style_identity?: string[];
+    comfort_preference?: string[];
+    style_inspiration?: string[];
     style_preferences?: Record<string, any>;
 }
 

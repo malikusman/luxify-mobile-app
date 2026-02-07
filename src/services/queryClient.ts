@@ -107,6 +107,7 @@ export const queryKeys = {
         all: ['options'] as const,
         occasions: () => [...queryKeys.options.all, 'occasions'] as const,
         occupations: () => [...queryKeys.options.all, 'occupations'] as const,
+        questionnaire: (gender?: string) => [...queryKeys.options.all, 'questionnaire', gender ?? ''] as const,
     },
 } as const;
 

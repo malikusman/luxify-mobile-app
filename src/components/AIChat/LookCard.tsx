@@ -14,6 +14,8 @@ interface LookCardProps {
     showTryOnArea?: boolean;
     onPress: () => void;
     onBookmarkPress?: (look: Look) => void;
+    /** Called when user taps Try again after a generation error. */
+    onRetry?: () => void;
 }
 
 /**
@@ -30,7 +32,7 @@ function getRightSideProducts(look: Look): Product[] {
     return (look.products || []).slice(0, 3);
 }
 
-export default function LookCard({ look, isGenerating, showTryOnArea = true, onPress, onBookmarkPress }: LookCardProps) {
+export default function LookCard({ look, isGenerating, showTryOnArea = true, onPress, onBookmarkPress, onRetry }: LookCardProps) {
     const colors = useThemeColors();
     const hasLightXImage = !!look.lightXImageUrl;
     const hasError = !!look.lightXError;
@@ -73,6 +75,15 @@ export default function LookCard({ look, isGenerating, showTryOnArea = true, onP
                             <Text style={[styles.errorText, { color: '#FF6B6B' }]} numberOfLines={3}>
                                 {look.lightXError}
                             </Text>
+                            {onRetry && (
+                                <TouchableOpacity
+                                    style={styles.retryButton}
+                                    onPress={onRetry}
+                                    activeOpacity={0.8}
+                                >
+                                    <Text style={styles.retryButtonText}>Try again</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
                     ) : (
                         <View style={styles.placeholder}>
@@ -210,6 +221,19 @@ const styles = StyleSheet.create({
         marginTop: scaleFontSize(8),
         textAlign: 'center',
         paddingHorizontal: scaleFontSize(12),
+    },
+    retryButton: {
+        marginTop: scaleFontSize(12),
+        paddingHorizontal: scaleFontSize(16),
+        paddingVertical: scaleFontSize(10),
+        backgroundColor: '#FF6B6B',
+        borderRadius: scaleFontSize(8),
+    },
+    retryButtonText: {
+        fontSize: scaleFontSize(14),
+        fontFamily: FONTS.nunitoBold,
+        fontWeight: '700',
+        color: '#FFFFFF',
     },
     buyButton: {
         position: 'absolute',

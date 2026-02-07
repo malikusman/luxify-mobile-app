@@ -82,6 +82,22 @@ export function useConversationLooks(userId: string | null, conversationId: stri
         [persist]
     );
 
+    /** Clear error for a look so it can be retried. */
+    const clearLookLightXError = useCallback(
+        async (messageId: string, lookIndex: number) => {
+            setLooksByMessageId((prev) => {
+                const list = prev[messageId];
+                if (!list || lookIndex < 0 || lookIndex >= list.length) return prev;
+                const next = [...list];
+                next[lookIndex] = { ...next[lookIndex], lightXError: undefined };
+                const nextState = { ...prev, [messageId]: next };
+                persist(messageId, next);
+                return nextState;
+            });
+        },
+        [persist]
+    );
+
     return {
         looksByMessageId,
         hydrateForMessages,
@@ -89,5 +105,6 @@ export function useConversationLooks(userId: string | null, conversationId: stri
         setLooks,
         updateLookLightX,
         updateLookLightXError,
+        clearLookLightXError,
     };
 }

@@ -23,6 +23,7 @@ export interface MessageBubbleProps {
     onStopAudio: () => void;
     onLookPress: (messageId: string, lookIndex: number, look: Look) => void;
     onBookmarkLook?: (look: Look) => void;
+    onRetryLook?: (messageId: string, lookIndex: number, look: Look) => void;
     formatDuration: (seconds: number) => string;
 }
 
@@ -42,6 +43,7 @@ export default function MessageBubble({
     onStopAudio,
     onLookPress,
     onBookmarkLook,
+    onRetryLook,
     formatDuration,
 }: MessageBubbleProps) {
     const colors = useThemeColors();
@@ -113,6 +115,11 @@ export default function MessageBubble({
                                 showTryOnArea={showTryOnArea}
                                 onPress={() => onLookPress(message.id, lookIndex, look)}
                                 onBookmarkPress={onBookmarkLook}
+                                onRetry={
+                                    onRetryLook && look.lightXError
+                                        ? () => onRetryLook(message.id, lookIndex, look)
+                                        : undefined
+                                }
                             />
                         );
                     })}

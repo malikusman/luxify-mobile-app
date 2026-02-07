@@ -242,7 +242,7 @@ export default function AIChatScreen() {
 
     const userId = useSelector((state: RootState) => state.auth?.user?.id) ?? null;
     const conversationLooks = useConversationLooks(userId, conversationId);
-    const { looksByMessageId, getLooksForMessage: getCachedLooks, setLooks: setLooksForMessage, hydrateForMessages, updateLookLightX, updateLookLightXError } = conversationLooks;
+    const { looksByMessageId, getLooksForMessage: getCachedLooks, setLooks: setLooksForMessage, hydrateForMessages, updateLookLightX, updateLookLightXError, clearLookLightXError } = conversationLooks;
 
     const [messageText, setMessageText] = useState('');
     const [selectedProduct, setSelectedProduct] = useState<any>(null);
@@ -330,9 +330,12 @@ export default function AIChatScreen() {
             looks: Look[],
             getCurrentCachedLooks: () => Look[],
             onSetLightXImage: (messageId: string, lookIndex: number, lightXImageUrl: string) => void,
-            onSetLightXError: (messageId: string, lookIndex: number, error: string) => void
+            onSetLightXError: (messageId: string, lookIndex: number, error: string) => void,
+            options?: { isRetry?: boolean; retryLookIndex?: number }
         ) => {
-            const messageKey = `${convId}-${msgId}`;
+            const isRetry = options?.isRetry === true;
+            const retryLookIndex = options?.retryLookIndex;
+            const messageKey = isRetry ? `${convId}-${msgId}-retry` : `${convId}-${msgId}`;
             if (processingMessagesRef.current.has(messageKey)) {
                 return;
             }
@@ -366,7 +369,7 @@ export default function AIChatScreen() {
                     continue;
                 }
                 
-                if (cachedLook?.lightXError || look.lightXError) {
+                if (!isRetry && (cachedLook?.lightXError || look.lightXError)) {
                     continue;
                 }
                 
@@ -425,7 +428,7 @@ export default function AIChatScreen() {
                     continue; // Skip LightX – not clothing or could not confirm
                 }
 
-                const lookKey = `${msgId}-${lookIndex}`;
+                const lookKey = isRetry && retryLookIndex !== undefined ? `${msgId}-${retryLookIndex}` : `${msgId}-${lookIndex}`;
                 setGeneratingLightXImages(prev => new Set(prev).add(lookKey));
 
                 try {
@@ -1710,6 +1713,30 @@ export default function AIChatScreen() {
         return [];
     }, [conversationId, getCachedLooks]);
 
+    const handleRetryLook = React.useCallback(
+        (messageId: string, lookIndex: number, look: Look) => {
+            if (!conversationId) return;
+            clearLookLightXError(messageId, lookIndex);
+            generateLightXImagesForLooks(
+                conversationId,
+                messageId,
+                [{ ...look, lightXError: undefined }],
+                () => getCachedLooks(messageId) ?? [],
+                updateLookLightX,
+                updateLookLightXError,
+                { isRetry: true, retryLookIndex: lookIndex }
+            );
+        },
+        [
+            conversationId,
+            clearLookLightXError,
+            getCachedLooks,
+            generateLightXImagesForLooks,
+            updateLookLightX,
+            updateLookLightXError,
+        ]
+    );
+
     const ensureLooksForMessage = React.useCallback(
         (messageId: string, messageWithMetadata: Message) => {
             if (!conversationId) return;
@@ -1948,6 +1975,7 @@ export default function AIChatScreen() {
                                             });
                                         }}
                                         onBookmarkLook={handleBookmarkLook}
+                                        onRetryLook={handleRetryLook}
                                         formatDuration={formatDuration}
                                     />
                                 );

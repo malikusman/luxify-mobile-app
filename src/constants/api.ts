@@ -74,6 +74,7 @@ export const API_ENDPOINTS = {
     OPTIONS: {
         OCCASIONS: '/options/occasions',
         OCCUPATIONS: '/options/occupations',
+        QUESTIONNAIRE: '/options/questionnaire',
     },
 } as const;
 

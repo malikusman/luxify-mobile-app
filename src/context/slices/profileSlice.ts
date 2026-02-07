@@ -8,6 +8,9 @@ export interface ProfileData {
     gender: string;
     occupation: string;
     occasion: string;
+    locationPreference: string[];
+    lifestylePreference: string[];
+    colorPreference: string[];
     favoriteColors: string[];
     selectedBrands: string[];
     dateOfBirth: string;
@@ -20,6 +23,9 @@ export interface ProfileData {
     shoulders: string;
     chest: string;
     bodyHighlightAreas: string[];
+    styleIdentity: string[];
+    comfortPreference: string[];
+    styleInspiration: string;
 }
 
 interface ProfileState {
@@ -31,7 +37,7 @@ interface ProfileState {
 
 const initialState: ProfileState = {
     currentStep: 1,
-    totalSteps: 10,
+    totalSteps: 15,
     data: {
         firstName: '',
         lastName: '',
@@ -40,6 +46,9 @@ const initialState: ProfileState = {
         gender: '',
         occupation: '',
         occasion: '',
+        locationPreference: [],
+        lifestylePreference: [],
+        colorPreference: [],
         favoriteColors: [],
         selectedBrands: [],
         dateOfBirth: '',
@@ -52,6 +61,9 @@ const initialState: ProfileState = {
         shoulders: '',
         chest: '',
         bodyHighlightAreas: [],
+        styleIdentity: [],
+        comfortPreference: [],
+        styleInspiration: '',
     },
     isCompleted: false,
 };
@@ -86,6 +98,22 @@ const profileSlice = createSlice({
             if (payload.bodyHighlightAreas) {
                 newData.bodyHighlightAreas = [...payload.bodyHighlightAreas];
             }
+            if (payload.locationPreference) {
+                newData.locationPreference = [...payload.locationPreference];
+            }
+            if (payload.lifestylePreference) {
+                newData.lifestylePreference = [...payload.lifestylePreference];
+            }
+            if (payload.colorPreference) {
+                newData.colorPreference = [...payload.colorPreference];
+            }
+            if (payload.styleIdentity) {
+                newData.styleIdentity = [...payload.styleIdentity];
+            }
+            if (payload.comfortPreference) {
+                newData.comfortPreference = [...payload.comfortPreference];
+            }
+            if (payload.styleInspiration !== undefined) newData.styleInspiration = payload.styleInspiration;
             if (payload.firstName !== undefined) newData.firstName = payload.firstName;
             if (payload.lastName !== undefined) newData.lastName = payload.lastName;
             if (payload.email !== undefined) newData.email = payload.email;
@@ -118,6 +146,9 @@ const profileSlice = createSlice({
                 gender: '',
                 occupation: '',
                 occasion: '',
+                locationPreference: [],
+                lifestylePreference: [],
+                colorPreference: [],
                 favoriteColors: [],
                 selectedBrands: [],
                 dateOfBirth: '',
@@ -130,6 +161,9 @@ const profileSlice = createSlice({
                 shoulders: '',
                 chest: '',
                 bodyHighlightAreas: [],
+                styleIdentity: [],
+                comfortPreference: [],
+                styleInspiration: '',
             };
             state.isCompleted = false;
         },

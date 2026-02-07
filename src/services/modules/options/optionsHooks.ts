@@ -1,6 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../queryClient';
 import { optionsApi } from './optionsApi';
+import type { QuestionnaireResponse } from './questionnaireTypes';
+
+export const useQuestionnaireOptions = (
+    enabled: boolean = true,
+    gender?: 'female' | 'male'
+) => {
+    return useQuery({
+        queryKey: queryKeys.options.questionnaire(gender),
+        queryFn: async (): Promise<QuestionnaireResponse> => {
+            return await optionsApi.getQuestionnaire(gender);
+        },
+        enabled,
+        staleTime: 30 * 60 * 1000,
+        gcTime: 60 * 60 * 1000,
+        refetchOnMount: false,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: true,
+    });
+};
 
 export const useOccasions = () => {
     return useQuery({
