@@ -53,7 +53,11 @@
       "instagramClientSecret": "",
       "instagramTestAccessToken": "",
       "tiktokClientKey": "",
-      "tiktokClientSecret": ""
+      "tiktokClientSecret": "",
+      "googleVertexClientEmail": "vertex-ai-try-clothes@luxify-test-483211.iam.gserviceaccount.com",
+      "googleVertexPrivateKey": "-----BEGIN PRIVATE KEY-----\\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDT7hdby0h7Qi4W\\nCyHJHNU9z0iygCbqrRyog5YUe0zUZGjbhQESc6SOHqc+Es9jhm5B7S3GEh9NHocb\\ncVtFHFFNnd++3KR69YxXiAFseNAxfsl+vDNl8rpnWwirqTC07urb8tYu9RurRuuh\\nzGTcrlWCNs3O+rlcVxC+XegYem64xFM/gp60hMDXC6l57UG5RGnDI2zsiKY69e/n\\nywWlguowrlYJBfu1RCuvXVr7q5CFOJnnAvoNTXFt8rtt4DCoJxdEUMqD9bOgPhro\\nVs0nVNhbEABUHboh1TAIMOdPqX8AUHoo5VORblj4HCoSmTj+qukdGCwvlqbsiWfS\\n8G2rLMcZAgMBAAECggEAAvgGeOlPCDZWtcWCppICP7squiDBoCR8LrUnMf1sh7DU\\nvOHZsGk70HzdRr6V4VT1sEk9t1UI02L+grPSvZQGZIy2C3ME/9mhlWv+PxzYfR+u\\nUW7wAQ6Gg3elll1d+rmPwzSH68D7Gf9kl3qTnXl4u69VBesCaT4pVHgKzhBQWENr\\nRTMn7PiBSp6W278h5fteAVzdGW6tmJcqXz0Rt08YIGtjGMinxg/1OQF1i8cHYOk2\\nGO1z6wHUXBmlokFX3DfM6EEEZqxn/TtyGqpnbfPan/Qd24wutbiY4qR2LQnPzSSC\\n7g3EGTPG18bF0mDTgv2gjX57oUIYRGcODRP+AQ0dnQKBgQD4u5VK/FtXUt37ibVq\\nBxPhtENrFihSlYmAt4fXJa7L0+mYusLam60N2kqP3USo+VoIVgzeskZyxFYKaQzb\\nGLba3wThlFaBojQONOKStY4gxsFiuGr55A/QVotPyezbADm/MKkIT9cnF2/Y9Utt\\n6py3amsn9X1OW91w0ZbICOGvLQKBgQDaHz0/+q9SkfHT3DDI3MFM5xtdVMbi2XiH\\nJjGsehKBEYwPclkwMI2sMPKSokACTwiaCD7D1WqUElapAZQq51hQRW/KcVBUpXSW\\n7dKW94qPA9igEm1dHd/JoirWAZexPB1+ypcbg26cW2yY66zc0AabWF4dvlLTproD\\nSKDwGIkLHQKBgDF04vd4/BR95qOIOyks5RggxrL5QeVB1IhidcEivgHLTgxPPkVH\\nZP53JBI89dT/V5aGvaJeIkHZph4Fy0eZP2p/o7HS0+yMuvsEKvTu4qbDvloJv0OW\\nxEoxmxuvU8gr4E+StllvvqEIOPYTt/7QAn85yrq0RkkZXQt8sRVvJqi1AoGBAKGV\\n3uQUq+j5YTLXvfQvRavY0TbU5PmMrXNBYi8px6eB/kY7KcM/VNSo9iqWs+CB+BdT\\n4FtnMKs84qIVH1ShSZU9u1E3nJD4eWSODiH0g9rquIHs5MPEq9JNpnofd+a+aANT\\nxZmGRlzihZLLlKWIHjzau+5A3k8ZBlgEZ+U15+ApAoGBAMFWHJkApGZy2GVXNfR0\\nM4DW8Y1Ysl+oVN3XDVexdAka8/3wC4JfpBt6Nh1Hm9wUqyw6PrracQqp/VTV38Rt\\n0ad2nSVr9eKMlluFJ0c3Cl3ZihrjfuaclDAn3rZmUbk2bW9gczJqTZsPb+3wJI3S\\nTAhZKQXIJHkZSI/JCJViSUCN\\n-----END PRIVATE KEY-----\\n",
+      "googleVertexProjectId": "luxify-test-483211",
+      "googleVertexRegion": "us-central1"
     }
   }
 }

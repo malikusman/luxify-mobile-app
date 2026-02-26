@@ -76,6 +76,7 @@ export const API_ENDPOINTS = {
         OCCUPATIONS: '/options/occupations',
         QUESTIONNAIRE: '/options/questionnaire',
     },
+    VIRTUAL_TRY_ON: '/virtual_try_on',
 } as const;
 
 export const HTTP_STATUS = {

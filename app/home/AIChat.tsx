@@ -41,7 +41,7 @@ import { getStylistImage } from '@/src/utils/stylistImageMapper';
 import { useSelectStylist } from '@/src/services/modules/stylists/stylistHooks';
 import { Stylist } from '@/src/services/modules/stylists/stylistTypes';
 import { useStylePhotos } from '@/src/services/modules/stylePhotos/stylePhotosHooks';
-import { performVirtualTryOn } from '@/src/services/virtualTryOn/lightXService';
+import { performVirtualTryOn } from '@/src/services/virtualTryOn/googleVertexAIService';
 
 const { width, height } = Dimensions.get('window');
 
