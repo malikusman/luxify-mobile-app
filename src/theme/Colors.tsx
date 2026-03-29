@@ -10,7 +10,11 @@ export const Colors = {
         // Background Colors
         background: '#FFFFFF',
         surface: '#F5F5F5',
+        aiChatBackground: '#F0F0F0',
         card: '#FFFFFF',
+        cardSecondary: '#D9D9D940',
+        tabBarBackground: '#00000014',
+        awarenessBackground: '#FFFFFF',
 
         // Text Colors
         text: '#090A0A',
@@ -40,6 +44,25 @@ export const Colors = {
         buttonText: '#FFFFFF',
         buttonTextSecondary: '#000000',
         divider: '#E3E5E5',
+
+        // Microphone Button Colors
+        micMiddle: '#1F1F1F',
+        micInner: '#848484',
+
+        // Bottom Bar Button Colors
+        bottomBarButtonBackground: '#F0F0F0',
+        
+        // Success Icon Background
+        successIconBackground: '#FAFAFA',
+
+        // Home screen
+        homeCardBackground: '#E8E8E8',
+        homeCardText: '#2C2C2C',
+        homeCardSubtitle: '#6B7280',
+        homeTalkToStylistButton: '#1A1A1A',
+        homeImagePlaceholderBg: '#F0F0F0',
+        homeOverlay: 'rgba(0, 0, 0, 0.35)',
+        homeClosetCardTitle: '#FFFFFF',
     },
     dark: {
         // Primary Colors
@@ -50,8 +73,11 @@ export const Colors = {
         // Background Colors
         background: '#121212',
         surface: '#1E1E1E',
+        aiChatBackground: '#F0F0F0',
         card: '#2C2C2C',
-
+        cardSecondary: '#D9D9D940',
+        tabBarBackground: '#FFFFFF14',
+        awarenessBackground: '#E7E8E9',
         // Text Colors
         text: '#FFFFFF',
         textSecondary: '#AAAAAA',
@@ -82,6 +108,25 @@ export const Colors = {
 
         // Divider Colors
         divider: '#E3E5E5',
+
+        // Microphone Button Colors
+        micMiddle: '#1F1F1F',
+        micInner: '#848484',
+
+        // Bottom Bar Button Colors
+        bottomBarButtonBackground: '#F0F0F0',
+        
+        // Success Icon Background
+        successIconBackground: '#FAFAFA',
+
+        // Home screen
+        homeCardBackground: '#2A2A2A',
+        homeCardText: '#E8E8E8',
+        homeCardSubtitle: '#9CA3AF',
+        homeTalkToStylistButton: '#1A1A1A',
+        homeImagePlaceholderBg: '#1F1F1F',
+        homeOverlay: 'rgba(0, 0, 0, 0.5)',
+        homeClosetCardTitle: '#FFFFFF',
     },
 };
 

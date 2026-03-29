@@ -14,7 +14,9 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.luxify",
+      "jsEngine": "hermes"
     },
     "android": {
       "adaptiveIcon": {
@@ -22,10 +24,36 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "jsEngine": "hermes"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you upload your outfit photos.",
+          "cameraPermission": "The app accesses your camera to let you take photos of your outfits."
+        }
+      ]
+    ],
+    "extra": {
+      "apiUrl": "https://luxify.pebbleintelligentsolutions.com/api/v1/mobile",
+      "backendUrl": "https://luxify.pebbleintelligentsolutions.com",
+      "meshyApiKey": "",
+      "lightXApiKey": "33aaac6c6ed3435787d80363e14fc909_0b4e057a2dfd4b45a77735130bc75e25_andoraitools",
+      "googleClientId": "",
+      "googleClientSecret": "",
+      "facebookAppId": "",
+      "facebookAppSecret": "",
+      "instagramClientId": "",
+      "instagramClientSecret": "",
+      "instagramTestAccessToken": "",
+      "tiktokClientKey": "",
+      "tiktokClientSecret": ""
     }
   }
 }
